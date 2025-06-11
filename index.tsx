@@ -921,11 +921,10 @@ function renderSolvePuzzleScreen() {
 
     const cluesContainer = document.createElement('div');
     cluesContainer.className = 'clues-container';
-    cluesContainer.appendChild(renderClues());
     
-    // 🚀 NOUVEAU: Bouton Vérifier dans la zone des définitions
+    // 🚀 NOUVEAU: Bouton Vérifier en haut de la zone définitions
     const verifySection = document.createElement('div');
-    verifySection.className = 'verify-section';
+    verifySection.className = 'verify-section-top';
     
     const checkButton = document.createElement('button');
     checkButton.textContent = 'Vérifier';
@@ -934,6 +933,9 @@ function renderSolvePuzzleScreen() {
     
     verifySection.appendChild(checkButton);
     cluesContainer.appendChild(verifySection);
+    
+    // Puis les définitions
+    cluesContainer.appendChild(renderClues());
 
     puzzleContent.appendChild(gridContainer);
     puzzleContent.appendChild(cluesContainer);
@@ -1080,45 +1082,144 @@ function renderGrid(): HTMLElement {
     return grid;
 }
 
-// 🚀 FONCTION CORRIGÉE: Focus sur un mot spécifique
+// 🚀 FONCTION ENTIÈREMENT RECODÉE: Focus sur un mot spécifique
 function focusOnWord(word: WordEntry) {
-    if (!word.startRow || !word.startCol || !appState.currentPuzzle?.grid) return;
+    if (!appState.currentPuzzle?.grid) return;
     
-    // 🐛 CORRECTION: Trouve la première case qui a le numéro du mot
-    let targetRow: number | null = null;
-    let targetCol: number | null = null;
+    console.log(`🎯 Recherche du focus pour "${word.word}" #${word.number} (${word.direction})`);
     
-    // Parcourt toute la grille pour trouver la case avec ce numéro
+    // 🔍 STRATÉGIE 1: Utiliser les coordonnées stockées du mot
+    if (word.startRow !== undefined && word.startCol !== undefined) {
+        const targetRow = word.startRow;
+        const targetCol = word.startCol;
+        
+        console.log(`📍 Coordonnées stockées: (${targetRow}, ${targetCol})`);
+        
+        // Vérifier que cette case contient bien une partie du mot
+        if (targetRow >= 0 && targetRow < appState.currentPuzzle.grid.length &&
+            targetCol >= 0 && targetCol < appState.currentPuzzle.grid[0].length) {
+            
+            const cell = appState.currentPuzzle.grid[targetRow][targetCol];
+            const expectedLetter = word.word[0].toUpperCase();
+            
+            if (cell.letter === expectedLetter) {
+                console.log(`✅ Case trouvée avec la bonne lettre "${expectedLetter}"`);
+                focusOnCell(targetRow, targetCol, word);
+                return;
+            }
+        }
+    }
+    
+    // 🔍 STRATÉGIE 2: Recherche par numéro dans toute la grille
+    console.log(`🔍 Recherche du numéro ${word.number} dans la grille...`);
+    
     for (let row = 0; row < appState.currentPuzzle.grid.length; row++) {
         for (let col = 0; col < appState.currentPuzzle.grid[row].length; col++) {
             const cell = appState.currentPuzzle.grid[row][col];
+            
             if (cell.number === word.number) {
-                targetRow = row;
-                targetCol = col;
-                break;
+                console.log(`✅ Numéro ${word.number} trouvé à (${row}, ${col})`);
+                focusOnCell(row, col, word);
+                return;
             }
         }
-        if (targetRow !== null) break;
     }
     
-    // Si pas trouvé par numéro, utilise la position de départ du mot
-    if (targetRow === null || targetCol === null) {
-        targetRow = word.startRow;
-        targetCol = word.startCol;
+    // 🔍 STRATÉGIE 3: Recherche par première lettre du mot
+    console.log(`🔍 Recherche de la première lettre "${word.word[0]}" du mot...`);
+    
+    const firstLetter = word.word[0].toUpperCase();
+    const potentialCells: {row: number, col: number, score: number}[] = [];
+    
+    for (let row = 0; row < appState.currentPuzzle.grid.length; row++) {
+        for (let col = 0; col < appState.currentPuzzle.grid[row].length; col++) {
+            const cell = appState.currentPuzzle.grid[row][col];
+            
+            if (cell.letter === firstLetter) {
+                // Vérifier si cette position peut être le début de notre mot
+                const score = calculateWordStartScore(word, row, col);
+                if (score > 0) {
+                    potentialCells.push({row, col, score});
+                }
+            }
+        }
     }
     
-    // Focus sur la case trouvée
-    const firstInput = document.querySelector(`input[data-row="${targetRow}"][data-col="${targetCol}"]`) as HTMLInputElement;
-    if (firstInput) {
-        firstInput.focus();
-        firstInput.select();
+    if (potentialCells.length > 0) {
+        // Prendre la meilleure position
+        potentialCells.sort((a, b) => b.score - a.score);
+        const best = potentialCells[0];
+        console.log(`✅ Meilleure position trouvée à (${best.row}, ${best.col}) score: ${best.score}`);
+        focusOnCell(best.row, best.col, word);
+        return;
+    }
+    
+    console.error(`❌ Impossible de trouver le début du mot "${word.word}" #${word.number}`);
+}
+
+// 🧮 NOUVELLE FONCTION: Calcule le score d'une position pour être le début d'un mot
+function calculateWordStartScore(word: WordEntry, row: number, col: number): number {
+    if (!appState.currentPuzzle?.grid) return 0;
+    
+    const grid = appState.currentPuzzle.grid;
+    let score = 0;
+    
+    // Vérifier si on peut placer le mot entier dans cette direction
+    if (word.direction === 'horizontal') {
+        if (col + word.word.length > grid[0].length) return 0;
         
-        console.log(`🎯 Focus sur mot "${word.word}" (#${word.number}) à (${targetRow}, ${targetCol})`);
+        // Vérifier chaque lettre du mot
+        for (let i = 0; i < word.word.length; i++) {
+            if (col + i >= grid[0].length) return 0;
+            
+            const cell = grid[row][col + i];
+            const expectedLetter = word.word[i].toUpperCase();
+            
+            if (cell.letter === expectedLetter) {
+                score += 10; // Bonne lettre = +10 points
+            } else if (cell.letter !== null) {
+                return 0; // Lettre incorrecte = échec
+            }
+        }
+    } else {
+        if (row + word.word.length > grid.length) return 0;
+        
+        // Vérifier chaque lettre du mot
+        for (let i = 0; i < word.word.length; i++) {
+            if (row + i >= grid.length) return 0;
+            
+            const cell = grid[row + i][col];
+            const expectedLetter = word.word[i].toUpperCase();
+            
+            if (cell.letter === expectedLetter) {
+                score += 10; // Bonne lettre = +10 points
+            } else if (cell.letter !== null) {
+                return 0; // Lettre incorrecte = échec
+            }
+        }
+    }
+    
+    return score;
+}
+
+// 🎯 NOUVELLE FONCTION: Focus sur une case spécifique avec effet
+function focusOnCell(row: number, col: number, word: WordEntry) {
+    const input = document.querySelector(`input[data-row="${row}"][data-col="${col}"]`) as HTMLInputElement;
+    
+    if (input) {
+        input.focus();
+        input.select();
+        
+        console.log(`🎯 Focus réussi sur (${row}, ${col}) pour "${word.word}"`);
         
         // 🎨 EFFET VISUEL: Highlight temporaire du mot
         highlightWordTemporarily(word);
     } else {
-        console.error(`❌ Impossible de trouver l'input pour le mot "${word.word}" à (${targetRow}, ${targetCol})`);
+        console.error(`❌ Input non trouvé à (${row}, ${col})`);
+        
+        // Afficher toutes les inputs disponibles pour debug
+        const allInputs = document.querySelectorAll('input[data-row][data-col]');
+        console.log(`📊 ${allInputs.length} inputs trouvés dans la grille`);
     }
 }
 
@@ -2183,6 +2284,39 @@ body {
     padding: 2rem;
     border-radius: 12px;
     box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    position: relative; /* Pour positionner le bouton */
+}
+
+/* 🚀 NOUVEAU: Bouton Vérifier flottant dans l'espace libre */
+.verify-button-container {
+    position: absolute;
+    top: 2rem;
+    right: 2rem;
+    z-index: 10;
+}
+
+.verify-btn-floating {
+    padding: 1rem 1.5rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    box-shadow: 0 4px 15px rgba(40,167,69,0.3);
+    transition: all 0.3s ease;
+    min-width: 120px;
+    cursor: pointer;
+}
+
+.verify-btn-floating:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(40,167,69,0.4);
+    background: linear-gradient(135deg, #218838 0%, #1dd1a1 100%);
+}
+
+.verify-btn-floating:active {
+    transform: translateY(0);
 }
 
 .crossword-grid {
@@ -2191,6 +2325,7 @@ body {
     gap: 2px;
     max-width: 600px;
     margin: 0 auto;
+    margin-right: 140px; /* Espace pour le bouton */
 }
 
 .grid-cell {
@@ -2276,12 +2411,16 @@ body {
     margin-right: 0.5rem;
 }
 
-/* Puzzle Controls */
+/* Puzzle Controls simplifiés */
 .puzzle-controls {
     display: flex;
     gap: 1rem;
     justify-content: center;
-    margin-bottom: 2rem;
+    margin-bottom: 1rem;
+}
+
+.puzzle-controls .btn {
+    min-width: 120px;
 }
 
 /* 🚀 NOUVELLES BULLES D'AIDE */
