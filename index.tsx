@@ -1054,29 +1054,29 @@ function renderGrid(): HTMLElement {
 
 // 🚀 FONCTION CORRIGÉE: Focus sur un mot spécifique
 function focusOnWord(word: WordEntry) {
-    if (!word.startRow || !word.startCol) return;
+    if (!word.startRow || !word.startCol || !appState.currentPuzzle?.grid) return;
     
-    // 🐛 CORRECTION: Trouve la première case qui a vraiment le numéro du mot
-    let targetRow = word.startRow;
-    let targetCol = word.startCol;
+    // 🐛 CORRECTION: Trouve la première case qui a le numéro du mot
+    let targetRow: number | null = null;
+    let targetCol: number | null = null;
     
-    // Vérifie si la case de départ a bien le bon numéro
-    if (appState.currentPuzzle?.grid) {
-        const startCell = appState.currentPuzzle.grid[word.startRow][word.startCol];
-        if (startCell.number !== word.number) {
-            // Cherche la case avec le bon numéro dans ce mot
-            for (let i = 0; i < word.word.length; i++) {
-                const cellRow = word.direction === 'horizontal' ? word.startRow : word.startRow + i;
-                const cellCol = word.direction === 'horizontal' ? word.startCol + i : word.startCol;
-                
-                const cell = appState.currentPuzzle.grid[cellRow][cellCol];
-                if (cell.number === word.number) {
-                    targetRow = cellRow;
-                    targetCol = cellCol;
-                    break;
-                }
+    // Parcourt toute la grille pour trouver la case avec ce numéro
+    for (let row = 0; row < appState.currentPuzzle.grid.length; row++) {
+        for (let col = 0; col < appState.currentPuzzle.grid[row].length; col++) {
+            const cell = appState.currentPuzzle.grid[row][col];
+            if (cell.number === word.number) {
+                targetRow = row;
+                targetCol = col;
+                break;
             }
         }
+        if (targetRow !== null) break;
+    }
+    
+    // Si pas trouvé par numéro, utilise la position de départ du mot
+    if (targetRow === null || targetCol === null) {
+        targetRow = word.startRow;
+        targetCol = word.startCol;
     }
     
     // Focus sur la case trouvée
@@ -1085,8 +1085,12 @@ function focusOnWord(word: WordEntry) {
         firstInput.focus();
         firstInput.select();
         
+        console.log(`🎯 Focus sur mot "${word.word}" (#${word.number}) à (${targetRow}, ${targetCol})`);
+        
         // 🎨 EFFET VISUEL: Highlight temporaire du mot
         highlightWordTemporarily(word);
+    } else {
+        console.error(`❌ Impossible de trouver l'input pour le mot "${word.word}" à (${targetRow}, ${targetCol})`);
     }
 }
 
