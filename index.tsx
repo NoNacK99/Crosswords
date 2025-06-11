@@ -968,7 +968,7 @@ function renderGrid(): HTMLElement {
                 input.dataset.row = rowIndex.toString();
                 input.dataset.col = colIndex.toString();
                 
-                // 🚀 AMÉLIORATION: Auto-navigation et validation
+                // 🚀 AMÉLIORATION: Auto-navigation et validation + effacement
                 input.oninput = (e) => {
                     const target = e.target as HTMLInputElement;
                     target.value = target.value.toUpperCase();
@@ -980,6 +980,19 @@ function renderGrid(): HTMLElement {
                     // Navigation automatique à la case suivante
                     if (target.value) {
                         navigateToNextCell(rowIndex, colIndex);
+                    }
+                };
+                
+                // 🚀 NOUVEAU: Double-clic pour effacer tout le mot
+                input.ondblclick = () => {
+                    clearWordAtPosition(rowIndex, colIndex);
+                };
+                
+                // 🚀 NOUVEAU: Raccourci Escape pour effacer le mot
+                input.onkeydown = (e) => {
+                    if (e.key === 'Escape') {
+                        clearWordAtPosition(rowIndex, colIndex);
+                        e.preventDefault();
                     }
                 };
                 
@@ -1000,20 +1013,165 @@ function renderGrid(): HTMLElement {
     return grid;
 }
 
-// 🚀 NOUVELLE FONCTION: Navigation automatique
+// 🚀 NOUVELLE FONCTION: Focus sur un mot spécifique
+function focusOnWord(word: WordEntry) {
+    if (!word.startRow || !word.startCol) return;
+    
+    // Trouve la première case du mot
+    const firstInput = document.querySelector(`input[data-row="${word.startRow}"][data-col="${word.startCol}"]`) as HTMLInputElement;
+    if (firstInput) {
+        firstInput.focus();
+        firstInput.select(); // Sélectionne le texte s'il y en a
+        
+        // 🎨 EFFET VISUEL: Highlight temporaire du mot
+        highlightWordTemporarily(word);
+    }
+}
+
+// 🎨 NOUVELLE FONCTION: Highlight visuel temporaire
+function highlightWordTemporarily(word: WordEntry) {
+    if (!word.startRow || !word.startCol || !appState.currentPuzzle?.grid) return;
+    
+    const cellsToHighlight: HTMLElement[] = [];
+    
+    // Trouve toutes les cases du mot
+    for (let i = 0; i < word.word.length; i++) {
+        const cellRow = word.direction === 'horizontal' ? word.startRow : word.startRow + i;
+        const cellCol = word.direction === 'horizontal' ? word.startCol + i : word.startCol;
+        
+        const input = document.querySelector(`input[data-row="${cellRow}"][data-col="${cellCol}"]`) as HTMLInputElement;
+        if (input && input.parentElement) {
+            cellsToHighlight.push(input.parentElement);
+        }
+    }
+    
+    // Ajoute l'effet highlight
+    cellsToHighlight.forEach(cell => {
+        cell.style.backgroundColor = '#ffeb3b';
+        cell.style.transform = 'scale(1.05)';
+        cell.style.transition = 'all 0.3s ease';
+    });
+    
+    // Retire l'effet après 1.5 secondes
+    setTimeout(() => {
+        cellsToHighlight.forEach(cell => {
+            cell.style.backgroundColor = '';
+            cell.style.transform = '';
+        });
+    }, 1500);
+}
+function clearWordAtPosition(row: number, col: number) {
+    if (!appState.currentPuzzle || !appState.currentPuzzle.grid) return;
+    
+    // Trouve le(s) mot(s) qui contient/contiennent cette case
+    const wordsAtPosition = appState.currentPuzzle.words.filter(word => {
+        if (!word.startRow || !word.startCol) return false;
+        
+        if (word.direction === 'horizontal') {
+            return row === word.startRow && 
+                   col >= word.startCol && 
+                   col < word.startCol + word.word.length;
+        } else {
+            return col === word.startCol && 
+                   row >= word.startRow && 
+                   row < word.startRow + word.word.length;
+        }
+    });
+    
+    // Si plusieurs mots se croisent, demande lequel effacer
+    let wordToClear: WordEntry;
+    
+    if (wordsAtPosition.length > 1) {
+        // Affiche un menu pour choisir quel mot effacer
+        const choice = confirm(`Plusieurs mots se croisent ici.\nCliquez OK pour effacer le mot HORIZONTAL, Annuler pour le VERTICAL.`);
+        wordToClear = choice ? 
+            wordsAtPosition.find(w => w.direction === 'horizontal')! : 
+            wordsAtPosition.find(w => w.direction === 'vertical')!;
+    } else if (wordsAtPosition.length === 1) {
+        wordToClear = wordsAtPosition[0];
+    } else {
+        return; // Aucun mot trouvé
+    }
+    
+    if (!wordToClear || !wordToClear.startRow || !wordToClear.startCol) return;
+    
+    // Efface toutes les lettres du mot
+    for (let i = 0; i < wordToClear.word.length; i++) {
+        const cellRow = wordToClear.direction === 'horizontal' ? wordToClear.startRow : wordToClear.startRow + i;
+        const cellCol = wordToClear.direction === 'horizontal' ? wordToClear.startCol + i : wordToClear.startCol;
+        
+        const cell = appState.currentPuzzle.grid[cellRow][cellCol];
+        if (cell) {
+            cell.userLetter = '';
+            cell.isCorrect = false;
+            
+            // Met à jour visuellement
+            const input = document.querySelector(`input[data-row="${cellRow}"][data-col="${cellCol}"]`) as HTMLInputElement;
+            if (input) {
+                input.value = '';
+                input.style.background = '';
+                // Retire les classes de validation
+                const cellElement = input.parentElement;
+                if (cellElement) {
+                    cellElement.classList.remove('correct', 'incorrect');
+                }
+            }
+        }
+    }
+    
+    // Focus sur la première case du mot effacé
+    const firstInput = document.querySelector(`input[data-row="${wordToClear.startRow}"][data-col="${wordToClear.startCol}"]`) as HTMLInputElement;
+    if (firstInput) {
+        firstInput.focus();
+    }
+    
+    console.log(`✅ Mot "${wordToClear.word}" effacé`);
+}
 function navigateToNextCell(currentRow: number, currentCol: number) {
     if (!appState.currentPuzzle || !appState.currentPuzzle.grid) return;
     
     const grid = appState.currentPuzzle.grid;
     
-    // Trouve la prochaine case vide dans la même direction
-    for (let col = currentCol + 1; col < grid[currentRow].length; col++) {
-        const cell = grid[currentRow][col];
-        if (cell.letter && !cell.userLetter) {
-            const nextInput = document.querySelector(`input[data-row="${currentRow}"][data-col="${col}"]`) as HTMLInputElement;
-            if (nextInput) {
-                nextInput.focus();
-                return;
+    // Trouve le mot qui contient cette case pour déterminer la direction
+    const currentWord = appState.currentPuzzle.words.find(word => {
+        if (!word.startRow || !word.startCol) return false;
+        
+        if (word.direction === 'horizontal') {
+            return currentRow === word.startRow && 
+                   currentCol >= word.startCol && 
+                   currentCol < word.startCol + word.word.length;
+        } else {
+            return currentCol === word.startCol && 
+                   currentRow >= word.startRow && 
+                   currentRow < word.startRow + word.word.length;
+        }
+    });
+    
+    if (!currentWord) return;
+    
+    // Navigation selon la direction du mot
+    if (currentWord.direction === 'horizontal') {
+        // Navigation horizontale (comme avant)
+        for (let col = currentCol + 1; col < grid[currentRow].length; col++) {
+            const cell = grid[currentRow][col];
+            if (cell.letter && !cell.userLetter) {
+                const nextInput = document.querySelector(`input[data-row="${currentRow}"][data-col="${col}"]`) as HTMLInputElement;
+                if (nextInput) {
+                    nextInput.focus();
+                    return;
+                }
+            }
+        }
+    } else {
+        // 🚀 NOUVEAU: Navigation verticale
+        for (let row = currentRow + 1; row < grid.length; row++) {
+            const cell = grid[row][currentCol];
+            if (cell.letter && !cell.userLetter) {
+                const nextInput = document.querySelector(`input[data-row="${row}"][data-col="${currentCol}"]`) as HTMLInputElement;
+                if (nextInput) {
+                    nextInput.focus();
+                    return;
+                }
             }
         }
     }
@@ -1160,6 +1318,21 @@ function renderClues(): HTMLElement {
     appState.currentPuzzle.words.forEach(word => {
         const listItem = document.createElement('li');
         listItem.innerHTML = `<span class="clue-number">${word.number}.</span> ${word.definition}`;
+        
+        // 🚀 NOUVEAU: Clic sur définition = va au mot dans la grille
+        listItem.style.cursor = 'pointer';
+        listItem.style.transition = 'background-color 0.2s ease';
+        listItem.onclick = () => {
+            focusOnWord(word);
+        };
+        
+        // 🚀 AMÉLIORATION: Hover effect
+        listItem.onmouseover = () => {
+            listItem.style.backgroundColor = '#e7f3ff';
+        };
+        listItem.onmouseout = () => {
+            listItem.style.backgroundColor = '';
+        };
         
         if (word.direction === 'horizontal') {
             horizontalList.appendChild(listItem);
@@ -2273,4 +2446,3 @@ document.addEventListener('DOMContentLoaded', () => {
     
     console.log("✅ Crossword Master v2.0: Initialization complete with intelligent features!");
 });
-                    
