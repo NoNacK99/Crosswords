@@ -905,6 +905,7 @@ function renderSolvePuzzleScreen() {
     puzzleContent.appendChild(cluesContainer);
     screen.appendChild(puzzleContent);
 
+    // Contrôles avec bulles d'aide
     const controls = document.createElement('div');
     controls.className = 'puzzle-controls';
 
@@ -925,6 +926,44 @@ function renderSolvePuzzleScreen() {
     controls.appendChild(checkButton);
     controls.appendChild(quitButton);
     screen.appendChild(controls);
+
+    // 🚀 NOUVELLES BULLES D'AIDE
+    const helpSection = document.createElement('div');
+    helpSection.className = 'help-section';
+    
+    const helpTitle = document.createElement('h4');
+    helpTitle.textContent = '💡 Astuces';
+    helpTitle.style.color = '#0066cc';
+    helpTitle.style.marginBottom = '1rem';
+    helpSection.appendChild(helpTitle);
+
+    const tips = [
+        {
+            icon: '🖱️',
+            text: 'Cliquez sur une définition pour aller au mot dans la grille'
+        },
+        {
+            icon: '⌨️',
+            text: 'Double-cliquez sur une case pour effacer tout le mot'
+        },
+        {
+            icon: '🏆',
+            text: 'Score = 10pts/mot + bonus vitesse (<30s) + bonus longueur + 20pts si parfait'
+        },
+        {
+            icon: '🔄',
+            text: 'Les lettres communes se remplissent automatiquement'
+        }
+    ];
+
+    tips.forEach(tip => {
+        const tipDiv = document.createElement('div');
+        tipDiv.className = 'help-tip';
+        tipDiv.innerHTML = `<span class="tip-icon">${tip.icon}</span> ${tip.text}`;
+        helpSection.appendChild(tipDiv);
+    });
+
+    screen.appendChild(helpSection);
 
     appRoot.appendChild(screen);
     renderErrorMessage();
@@ -1013,15 +1052,38 @@ function renderGrid(): HTMLElement {
     return grid;
 }
 
-// 🚀 NOUVELLE FONCTION: Focus sur un mot spécifique
+// 🚀 FONCTION CORRIGÉE: Focus sur un mot spécifique
 function focusOnWord(word: WordEntry) {
     if (!word.startRow || !word.startCol) return;
     
-    // Trouve la première case du mot
-    const firstInput = document.querySelector(`input[data-row="${word.startRow}"][data-col="${word.startCol}"]`) as HTMLInputElement;
+    // 🐛 CORRECTION: Trouve la première case qui a vraiment le numéro du mot
+    let targetRow = word.startRow;
+    let targetCol = word.startCol;
+    
+    // Vérifie si la case de départ a bien le bon numéro
+    if (appState.currentPuzzle?.grid) {
+        const startCell = appState.currentPuzzle.grid[word.startRow][word.startCol];
+        if (startCell.number !== word.number) {
+            // Cherche la case avec le bon numéro dans ce mot
+            for (let i = 0; i < word.word.length; i++) {
+                const cellRow = word.direction === 'horizontal' ? word.startRow : word.startRow + i;
+                const cellCol = word.direction === 'horizontal' ? word.startCol + i : word.startCol;
+                
+                const cell = appState.currentPuzzle.grid[cellRow][cellCol];
+                if (cell.number === word.number) {
+                    targetRow = cellRow;
+                    targetCol = cellCol;
+                    break;
+                }
+            }
+        }
+    }
+    
+    // Focus sur la case trouvée
+    const firstInput = document.querySelector(`input[data-row="${targetRow}"][data-col="${targetCol}"]`) as HTMLInputElement;
     if (firstInput) {
         firstInput.focus();
-        firstInput.select(); // Sélectionne le texte s'il y en a
+        firstInput.select();
         
         // 🎨 EFFET VISUEL: Highlight temporaire du mot
         highlightWordTemporarily(word);
@@ -2187,6 +2249,55 @@ body {
     display: flex;
     gap: 1rem;
     justify-content: center;
+    margin-bottom: 2rem;
+}
+
+/* 🚀 NOUVELLES BULLES D'AIDE */
+.help-section {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    margin-top: 1rem;
+    border-left: 4px solid #0066cc;
+}
+
+.help-tip {
+    display: flex;
+    align-items: center;
+    margin-bottom: 0.75rem;
+    padding: 0.5rem;
+    background: #f8f9fa;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    line-height: 1.4;
+}
+
+.help-tip:last-child {
+    margin-bottom: 0;
+}
+
+.tip-icon {
+    font-size: 1.2rem;
+    margin-right: 0.75rem;
+    flex-shrink: 0;
+}
+
+/* Amélioration des définitions cliquables */
+.clues-section li {
+    margin-bottom: 0.75rem;
+    padding: 0.75rem;
+    background: #f8f9fa;
+    border-radius: 6px;
+    border-left: 3px solid #0066cc;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.clues-section li:hover {
+    background: #e7f3ff;
+    transform: translateX(3px);
+    box-shadow: 0 2px 5px rgba(0,102,204,0.2);
 }
 
 /* Puzzle Complete */
