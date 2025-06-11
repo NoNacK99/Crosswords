@@ -110,21 +110,34 @@ class CrosswordGenerator {
     }
 
     private canPlaceWord(word: string, row: number, col: number, direction: 'horizontal' | 'vertical'): boolean {
+        // 🐛 PROTECTION: Vérification des limites strictes
         if (direction === 'horizontal') {
-            if (col + word.length > this.gridSize || row < 0 || row >= this.gridSize) {
+            if (col < 0 || row < 0 || row >= this.gridSize || col + word.length > this.gridSize) {
                 return false;
             }
         } else {
-            if (row + word.length > this.gridSize || col < 0 || col >= this.gridSize) {
+            if (col < 0 || row < 0 || col >= this.gridSize || row + word.length > this.gridSize) {
                 return false;
             }
         }
 
+        // 🐛 PROTECTION: Vérification de chaque case
         for (let i = 0; i < word.length; i++) {
             const cellRow = direction === 'horizontal' ? row : row + i;
             const cellCol = direction === 'horizontal' ? col + i : col;
             
-            const existingLetter = this.grid[cellRow][cellCol].letter;
+            // Double vérification des limites
+            if (cellRow < 0 || cellRow >= this.gridSize || cellCol < 0 || cellCol >= this.gridSize) {
+                return false;
+            }
+            
+            const existingCell = this.grid[cellRow]?.[cellCol];
+            if (!existingCell) {
+                console.error(`❌ Case undefined à (${cellRow}, ${cellCol})`);
+                return false;
+            }
+            
+            const existingLetter = existingCell.letter;
             
             if (existingLetter !== null && existingLetter !== word[i]) {
                 return false;
@@ -661,7 +674,7 @@ SECURITE | Le sujet principal`;
     renderErrorMessage();
 }
 
-// 🚀 NOUVELLE FONCTION: Import en masse
+// 🚀 NOUVELLE FONCTION: Import en masse SÉCURISÉ
 function handleBulkImport(text: string) {
     clearErrorMessage();
     
@@ -694,19 +707,28 @@ function handleBulkImport(text: string) {
             }
             
             if (parts.length >= 2 && parts[0] && parts[1]) {
-                const word = parts[0].toUpperCase().replace(/[^A-Z]/g, ''); // Garde que les lettres
+                // 🐛 CORRECTION: Nettoyage strict du mot
+                let word = parts[0].toUpperCase()
+                    .replace(/[^A-Z]/g, '') // Garde que les lettres
+                    .replace(/\s+/g, ''); // Supprime tous les espaces
+                
                 const definition = parts[1];
                 
-                if (word.length > 0) {
+                // 🚨 VALIDATION: Rejette les mots problématiques
+                if (word.length > 0 && word.length <= 15) { // Max 15 lettres
                     addWordEntry(wordsContainer, word, definition);
                     importedCount++;
+                } else if (word.length > 15) {
+                    console.warn(`❌ Mot "${parts[0]}" trop long (${word.length} lettres), ignoré`);
+                } else {
+                    console.warn(`❌ Mot "${parts[0]}" invalide, ignoré`);
                 }
             }
         }
     });
     
     if (importedCount === 0) {
-        appState.errorMessage = "Aucun mot valide trouvé. Format attendu: MOT | Définition";
+        appState.errorMessage = "Aucun mot valide trouvé. Format attendu: MOT | Définition (pas d'espaces dans les mots)";
         renderErrorMessage();
         addWordEntry(wordsContainer); // Ajoute au moins un champ vide
     } else {
@@ -900,19 +922,26 @@ function renderSolvePuzzleScreen() {
     const cluesContainer = document.createElement('div');
     cluesContainer.className = 'clues-container';
     cluesContainer.appendChild(renderClues());
+    
+    // 🚀 NOUVEAU: Bouton Vérifier dans la zone des définitions
+    const verifySection = document.createElement('div');
+    verifySection.className = 'verify-section';
+    
+    const checkButton = document.createElement('button');
+    checkButton.textContent = 'Vérifier';
+    checkButton.className = 'btn btn-primary verify-btn';
+    checkButton.onclick = checkAnswers;
+    
+    verifySection.appendChild(checkButton);
+    cluesContainer.appendChild(verifySection);
 
     puzzleContent.appendChild(gridContainer);
     puzzleContent.appendChild(cluesContainer);
     screen.appendChild(puzzleContent);
 
-    // Contrôles avec bulles d'aide
+    // Contrôles simplifiés (juste Quitter)
     const controls = document.createElement('div');
     controls.className = 'puzzle-controls';
-
-    const checkButton = document.createElement('button');
-    checkButton.textContent = 'Vérifier';
-    checkButton.className = 'btn btn-primary';
-    checkButton.onclick = checkAnswers;
 
     const quitButton = document.createElement('button');
     quitButton.textContent = 'Quitter';
@@ -923,7 +952,6 @@ function renderSolvePuzzleScreen() {
         }
     };
 
-    controls.appendChild(checkButton);
     controls.appendChild(quitButton);
     screen.appendChild(controls);
 
