@@ -895,6 +895,7 @@ statsSection.style.padding = '4px 12px';
 statsSection.style.borderRadius = '8px';
 statsSection.style.boxShadow = '0 1px 4px rgba(0,0,0,.08)';
 statsSection.style.alignItems = 'center';
+        statsSection.style.flex = '0 0 auto';
 
     const timer = document.createElement('div');
     timer.className = 'timer';
