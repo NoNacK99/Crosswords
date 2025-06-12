@@ -1014,16 +1014,24 @@ function renderGrid(): HTMLElement {
                 input.dataset.row = rowIndex.toString();
                 input.dataset.col = colIndex.toString();
                 
-                input.oninput = (e) => {
-                    const target = e.target as HTMLInputElement;
-                    target.value = target.value.toUpperCase();
-                    updateUserAnswer(rowIndex, colIndex, target.value);
-                    
-                    checkWordCompletion(rowIndex, colIndex);
-                    
-                    if (target.value) {
-                        navigateToNextCell(rowIndex, colIndex);
-                    }
+                
+input.oninput = (e) => {
+    const target = e.target as HTMLInputElement;
+    target.value = target.value.toUpperCase();
+
+    // Vérifie si la case était vide AVANT de taper
+    const cell = appState.currentPuzzle!.grid![rowIndex][colIndex];
+    const wasEmpty = !(cell.userLetter?.length);
+
+    updateUserAnswer(rowIndex, colIndex, target.value);
+    checkWordCompletion(rowIndex, colIndex);
+
+    // Avance seulement si on vient de remplir une case qui était vide
+    if (target.value && wasEmpty) {
+        navigateToNextCell(rowIndex, colIndex);
+    }
+};
+
                 };
                 
                 // --- NOUVELLE GESTION DE DIRECTION ---
@@ -1679,7 +1687,7 @@ const styles = `
     --text-color: #2c3e50;
     --highlight-color: #ffeb3b; /* Jaune pour le surlignage du mot actif */
     /* 🎨 MODIFICATION COULEUR */
-    --blocked-cell-color: #7f8c8d; /* Gris ardoise plus doux */
+    --blocked-cell-color: #c8d4de; /* Gris ardoise plus doux */
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
