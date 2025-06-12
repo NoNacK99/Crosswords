@@ -1032,7 +1032,6 @@ input.oninput = (e) => {
     }
 };
 
-                };
                 
                 // --- NOUVELLE GESTION DE DIRECTION ---
                 input.onfocus = () => {
