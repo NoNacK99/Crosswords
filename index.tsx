@@ -1042,9 +1042,6 @@ input.oninput = (e) => {
         navigateToNextCell(rowIndex, colIndex);
     }
 };
-
-                };
-                
                 // --- NOUVELLE GESTION DE DIRECTION ---
                 input.onfocus = () => {
                     handleCellFocus(rowIndex, colIndex);
