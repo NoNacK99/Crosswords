@@ -1,6 +1,6 @@
 /**
- * CROSSWORD MASTER v2.0
- * Système de mots croisés éducatifs interactifs avec algorithme intelligent
+ * CROSSWORD MASTER v2.1
+ * Système de mots croisés éducatifs interactifs avec algorithme intelligent et verrou de direction
  */
 
 // --- Interfaces ---
@@ -62,10 +62,9 @@ interface IntersectionCandidate {
 
 // --- Classe d'algorithme intelligent (VERSION AMÉLIORÉE) ---
 class CrosswordGenerator {
-    private gridSize: number = 20; // MODIFIÉ: Un peu plus grand pour plus de 10 mots
+    private gridSize: number = 20;
     private placedWords: Map<string, WordEntry> = new Map();
     private grid: GridCell[][] = [];
-    // NOUVEAU: Stockage des intersections pré-calculées
     private intersectionCache: Map<string, IntersectionCandidate[]> = new Map();
 
     constructor() {
@@ -82,7 +81,6 @@ class CrosswordGenerator {
         );
     }
     
-    // NOUVEAU: Pré-calcul de toutes les intersections possibles entre paires de mots
     private precomputeIntersections(words: WordEntry[]): void {
         this.intersectionCache.clear();
         for (let i = 0; i < words.length; i++) {
@@ -95,13 +93,13 @@ class CrosswordGenerator {
                 const intersections = this.findIntersections(word1, word2);
                 if (intersections.length > 0) {
                     this.intersectionCache.set(key1, intersections);
-                    this.intersectionCache.set(key2, intersections.map(int => ({ // Inverser pour la recherche dans l'autre sens
+                    this.intersectionCache.set(key2, intersections.map(int => ({
                         word1: int.word2,
                         word1Index: int.word2Index,
                         word2: int.word1,
                         word2Index: int.word1Index,
                         letter: int.letter,
-                        score: int.score // Le score de base reste le même
+                        score: int.score
                     })));
                 }
             }
@@ -117,7 +115,7 @@ class CrosswordGenerator {
                         word1, word1Index: i,
                         word2, word2Index: j,
                         letter: word1[i],
-                        score: 1 // Score de base, nous allons le complexifier
+                        score: 1
                     });
                 }
             }
@@ -125,7 +123,6 @@ class CrosswordGenerator {
         return intersections;
     }
     
-    // MODIFIÉ: La fonction de score est maintenant beaucoup plus puissante
     private calculatePlacementScore(word: string, row: number, col: number, direction: 'horizontal' | 'vertical'): number {
         let score = 0;
         let intersections = 0;
@@ -134,34 +131,27 @@ class CrosswordGenerator {
             const current_row = direction === 'horizontal' ? row : row + i;
             const current_col = direction === 'horizontal' ? col + i : col;
 
-            // Le mot croise un mot existant
             if (this.grid[current_row][current_col].letter === word[i].toUpperCase()) {
                 intersections++;
-                score += 50; // Gros bonus pour chaque intersection
+                score += 50;
             }
             
-            // Le mot est adjacent à un autre mot (prépare un futur croisement)
-            // Vérification haut/bas pour un mot horizontal
             if (direction === 'horizontal') {
                 if (current_row > 0 && this.grid[current_row - 1][current_col].letter !== null) score += 1;
                 if (current_row < this.gridSize - 1 && this.grid[current_row + 1][current_col].letter !== null) score += 1;
             }
-            // Vérification gauche/droite pour un mot vertical
             else {
                 if (current_col > 0 && this.grid[current_row][current_col - 1].letter !== null) score += 1;
                 if (current_col < this.gridSize - 1 && this.grid[current_row][current_col + 1].letter !== null) score += 1;
             }
         }
 
-        // Pénalité pour les mots sans aucune intersection
         if (intersections === 0) {
-            return -1; // On veut absolument éviter ça
+            return -1;
         }
         
-        // Bonus pour la densité
         score += intersections * 100;
         
-        // Bonus de compacité (léger)
         const centerMalus = Math.abs(row - this.gridSize / 2) + Math.abs(col - this.gridSize / 2);
         score -= centerMalus;
         
@@ -169,7 +159,6 @@ class CrosswordGenerator {
     }
 
     private canPlaceWord(word: string, row: number, col: number, direction: 'horizontal' | 'vertical'): boolean {
-        // Vérification des limites
         if (direction === 'horizontal') {
             if (col < 0 || row < 0 || row >= this.gridSize || col + word.length > this.gridSize) return false;
         } else {
@@ -184,19 +173,15 @@ class CrosswordGenerator {
             const letterAtCell = cell.letter;
             const currentWordLetter = word[i].toUpperCase();
 
-            // Si la case n'est pas vide et ne correspond pas à la lettre d'intersection
             if (letterAtCell !== null && letterAtCell !== currentWordLetter) {
                 return false;
             }
-            // Si la case est vide, on vérifie que le placement ne colle pas un mot parallèle
             if (letterAtCell === null) {
                 if (direction === 'horizontal') {
-                    // Vérifie au-dessus et en-dessous
                     if ((r > 0 && this.grid[r - 1][c].letter !== null) || (r < this.gridSize - 1 && this.grid[r + 1][c].letter !== null)) {
                         return false;
                     }
-                } else { // 'vertical'
-                    // Vérifie à gauche et à droite
+                } else {
                     if ((c > 0 && this.grid[r][c - 1].letter !== null) || (c < this.gridSize - 1 && this.grid[r][c + 1].letter !== null)) {
                         return false;
                     }
@@ -204,12 +189,11 @@ class CrosswordGenerator {
             }
         }
         
-        // Vérifie qu'on ne colle pas un mot au début ou à la fin
         if (direction === 'horizontal') {
             if ((col > 0 && this.grid[row][col-1].letter !== null) || (col + word.length < this.gridSize && this.grid[row][col+word.length].letter !== null)){
                 return false;
             }
-        } else { // 'vertical'
+        } else {
              if ((row > 0 && this.grid[row-1][col].letter !== null) || (row + word.length < this.gridSize && this.grid[row+word.length][col].letter !== null)){
                 return false;
             }
@@ -218,18 +202,14 @@ class CrosswordGenerator {
         return true;
     }
 
-    // MODIFIÉ: La recherche est maintenant basée sur le nouveau score
     private findBestPosition(wordToPlace: WordEntry): { row: number; col: number; direction: 'horizontal' | 'vertical'; score: number } | null {
         let bestPosition = null;
 
-        // Pour chaque mot déjà placé
         for (const placedWord of this.placedWords.values()) {
             const key = `${placedWord.word}-${wordToPlace.word}`;
             const intersections = this.intersectionCache.get(key) || [];
 
-            // Pour chaque intersection possible entre le nouveau mot et un mot placé
             for (const intersection of intersections) {
-                // Note: La logique de calcul de la position a été un peu simplifiée et corrigée
                 const newWordDirection = placedWord.direction === 'horizontal' ? 'vertical' : 'horizontal';
                 
                 let row: number, col: number;
@@ -265,7 +245,6 @@ class CrosswordGenerator {
             
             this.grid[cellRow][cellCol].letter = wordEntry.word[i].toUpperCase();
             if (i === 0) {
-                 // Ne pas écraser un numéro existant
                  if (this.grid[cellRow][cellCol].number === null) {
                     this.grid[cellRow][cellCol].number = number;
                  }
@@ -274,21 +253,18 @@ class CrosswordGenerator {
         this.placedWords.set(wordEntry.word, wordEntry);
     }
     
-    // MODIFIÉ: La logique principale de génération
     public generateGrid(words: WordEntry[]): GridCell[][] {
         if (words.length === 0) return this.grid;
 
         this.initializeGrid();
         this.placedWords.clear();
         
-        // NOUVEAU: Pré-calculer les intersections
         this.precomputeIntersections(words);
         const sortedWords = [...words].sort((a, b) => b.word.length - a.word.length);
         
         let unplacedWords = [...sortedWords];
         let wordNumber = 1;
         
-        // Place le premier mot au centre
         const firstWord = unplacedWords.shift();
         if(!firstWord) return this.grid;
         
@@ -296,13 +272,11 @@ class CrosswordGenerator {
         const startCol = Math.floor((this.gridSize - firstWord.word.length) / 2);
         this.placeWord(firstWord, startRow, startCol, 'horizontal', wordNumber++);
 
-        // Placer les mots restants
         let attempts = 0;
         while (unplacedWords.length > 0 && attempts < words.length * 2) {
             let bestPlacement: { word: WordEntry; pos: any; } | null = null;
             let wordIndexToPlace = -1;
 
-            // Trouver le meilleur mot à placer parmi ceux qui restent
             for (let i = 0; i < unplacedWords.length; i++) {
                 const wordToPlace = unplacedWords[i];
                 const position = this.findBestPosition(wordToPlace);
@@ -313,7 +287,6 @@ class CrosswordGenerator {
             }
 
             if (bestPlacement) {
-                // Attribuer un numéro seulement si la case de départ est vide
                 const {row, col} = bestPlacement.pos;
                 let newWordNumber = wordNumber;
                 if(this.grid[row][col].number === null) {
@@ -331,18 +304,17 @@ class CrosswordGenerator {
             attempts++;
         }
 
-        // Finaliser les numéros pour qu'ils soient uniques et séquentiels
         const numberMap = new Map<number, number>();
         let nextNumber = 1;
-        for (const word of this.placedWords.values()) {
-            if (word.number && !numberMap.has(word.number)) {
-                numberMap.set(word.number, nextNumber++);
+        const wordsByPosition = [...this.placedWords.values()].sort((a,b) => (a.startRow! * this.gridSize + a.startCol!) - (b.startRow! * this.gridSize + b.startCol!));
+        for (const word of wordsByPosition) {
+            const cell = this.grid[word.startRow!][word.startCol!];
+            if (cell.number) {
+                 if (!numberMap.has(cell.number)) {
+                    numberMap.set(cell.number, nextNumber++);
+                 }
+                 word.number = numberMap.get(cell.number);
             }
-        }
-        for (const word of this.placedWords.values()) {
-             if (word.number) {
-                word.number = numberMap.get(word.number);
-             }
         }
 
         return this.grid;
@@ -363,6 +335,9 @@ interface AppState {
     errorMessage: string | null;
     studentAccessMode: boolean;
     completedPuzzles: CompletedPuzzle[];
+    // --- NOUVELLE GESTION DE DIRECTION ---
+    currentDirection: 'horizontal' | 'vertical';
+    lastFocusedCell: { row: number, col: number } | null;
 }
 
 const appState: AppState = {
@@ -374,7 +349,10 @@ const appState: AppState = {
     startTime: null,
     errorMessage: null,
     studentAccessMode: false,
-    completedPuzzles: []
+    completedPuzzles: [],
+    // --- NOUVELLE GESTION DE DIRECTION ---
+    currentDirection: 'horizontal',
+    lastFocusedCell: null
 };
 
 // --- localStorage Functions ---
@@ -435,13 +413,11 @@ function formatTime(seconds: number): string {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
-// --- NOUVEAU ALGORITHME DE GÉNÉRATION DE GRILLE ---
 function generateGrid(words: WordEntry[]): GridCell[][] {
     console.log("🧠 Génération intelligente de la grille avec", words.length, "mots");
     const generator = new CrosswordGenerator();
     const result = generator.generateGrid(words);
     
-    // Log pour debug
     words.forEach(word => {
         if (word.startRow !== undefined && word.startCol !== undefined) {
             console.log(`📍 ${word.word}: ${word.direction} à (${word.startRow}, ${word.startCol}) #${word.number}`);
@@ -566,7 +542,6 @@ function renderWelcomeScreen() {
     renderErrorMessage();
 }
 
-// 🎯 AMÉLIORATION: Interface de création avec option paste en masse
 function renderCreatePuzzleScreen() {
     clearAppRoot();
     const screen = document.createElement('div');
@@ -583,7 +558,6 @@ function renderCreatePuzzleScreen() {
         handleSavePuzzle(form);
     };
 
-    // Informations générales
     const infoSection = document.createElement('div');
     infoSection.className = 'form-section';
     
@@ -618,7 +592,6 @@ function renderCreatePuzzleScreen() {
     infoSection.appendChild(themeGroup);
     form.appendChild(infoSection);
 
-    // 🚀 NOUVELLE SECTION: Paste en masse
     const pasteSection = document.createElement('div');
     pasteSection.className = 'form-section';
     
@@ -655,7 +628,6 @@ SECURITE | Le sujet principal`;
     pasteSection.appendChild(pasteGroup);
     form.appendChild(pasteSection);
 
-    // Section mots (existante)
     const wordsSection = document.createElement('div');
     wordsSection.className = 'form-section';
     
@@ -677,10 +649,8 @@ SECURITE | Le sujet principal`;
 
     form.appendChild(wordsSection);
 
-    // Ajout du premier mot par défaut
     addWordEntry(wordsContainer);
 
-    // Boutons de contrôle
     const controlsSection = document.createElement('div');
     controlsSection.className = 'form-controls';
 
@@ -704,7 +674,6 @@ SECURITE | Le sujet principal`;
     renderErrorMessage();
 }
 
-// 🚀 NOUVELLE FONCTION: Import en masse SÉCURISÉ
 function handleBulkImport(text: string) {
     clearErrorMessage();
     
@@ -717,7 +686,6 @@ function handleBulkImport(text: string) {
     const lines = text.trim().split('\n');
     const wordsContainer = document.getElementById('words-container') as HTMLElement;
     
-    // Vide le container
     wordsContainer.innerHTML = '';
     
     let importedCount = 0;
@@ -725,7 +693,6 @@ function handleBulkImport(text: string) {
     lines.forEach(line => {
         const trimmedLine = line.trim();
         if (trimmedLine) {
-            // Supporte différents séparateurs: |, :, -
             const separators = ['|', ':', '-'];
             let parts: string[] = [];
             
@@ -737,15 +704,13 @@ function handleBulkImport(text: string) {
             }
             
             if (parts.length >= 2 && parts[0] && parts[1]) {
-                // 🐛 CORRECTION: Nettoyage strict du mot
                 let word = parts[0].toUpperCase()
-                    .replace(/[^A-Z]/g, '') // Garde que les lettres
-                    .replace(/\s+/g, ''); // Supprime tous les espaces
+                    .replace(/[^A-Z]/g, '')
+                    .replace(/\s+/g, '');
                 
                 const definition = parts[1];
                 
-                // 🚨 VALIDATION: Rejette les mots problématiques
-                if (word.length > 0 && word.length <= 15) { // Max 15 lettres
+                if (word.length > 0 && word.length <= 15) {
                     addWordEntry(wordsContainer, word, definition);
                     importedCount++;
                 } else if (word.length > 15) {
@@ -760,17 +725,11 @@ function handleBulkImport(text: string) {
     if (importedCount === 0) {
         appState.errorMessage = "Aucun mot valide trouvé. Format attendu: MOT | Définition (pas d'espaces dans les mots)";
         renderErrorMessage();
-        addWordEntry(wordsContainer); // Ajoute au moins un champ vide
+        addWordEntry(wordsContainer);
     } else {
-        // Message de succès temporaire
         const successMsg = document.createElement('div');
         successMsg.className = 'success-message';
         successMsg.textContent = `✅ ${importedCount} mots importés avec succès !`;
-        successMsg.style.background = '#d4edda';
-        successMsg.style.color = '#155724';
-        successMsg.style.padding = '1rem';
-        successMsg.style.borderRadius = '8px';
-        successMsg.style.marginBottom = '1rem';
         
         const screenContent = appRoot.querySelector('.screen');
         if (screenContent) {
@@ -799,7 +758,7 @@ function addWordEntry(container: HTMLElement, prefillWord: string = '', prefillD
     wordInput.style.textTransform = 'uppercase';
     wordInput.value = prefillWord;
     wordInput.oninput = (e) => {
-        (e.target as HTMLInputElement).value = (e.target as HTMLInputElement).value.toUpperCase();
+        (e.target as HTMLInputElement).value = (e.target as HTMLInputElement).value.toUpperCase().replace(/[^A-Z]/g, '');
     };
 
     const definitionLabel = document.createElement('label');
@@ -952,7 +911,6 @@ function renderSolvePuzzleScreen() {
     const cluesContainer = document.createElement('div');
     cluesContainer.className = 'clues-container';
     
-    // 🚀 NOUVEAU: Bouton Vérifier en haut de la zone définitions
     const verifySection = document.createElement('div');
     verifySection.className = 'verify-section-top';
     
@@ -964,14 +922,12 @@ function renderSolvePuzzleScreen() {
     verifySection.appendChild(checkButton);
     cluesContainer.appendChild(verifySection);
     
-    // Puis les définitions
     cluesContainer.appendChild(renderClues());
 
     puzzleContent.appendChild(gridContainer);
     puzzleContent.appendChild(cluesContainer);
     screen.appendChild(puzzleContent);
 
-    // Contrôles simplifiés (juste Quitter)
     const controls = document.createElement('div');
     controls.className = 'puzzle-controls';
 
@@ -987,33 +943,18 @@ function renderSolvePuzzleScreen() {
     controls.appendChild(quitButton);
     screen.appendChild(controls);
 
-    // 🚀 NOUVELLES BULLES D'AIDE
     const helpSection = document.createElement('div');
     helpSection.className = 'help-section';
     
     const helpTitle = document.createElement('h4');
     helpTitle.textContent = '💡 Astuces';
-    helpTitle.style.color = '#0066cc';
-    helpTitle.style.marginBottom = '1rem';
     helpSection.appendChild(helpTitle);
 
     const tips = [
-        {
-            icon: '🖱️',
-            text: 'Cliquez sur une définition pour aller au mot dans la grille'
-        },
-        {
-            icon: '⌨️',
-            text: 'Double-cliquez sur une case pour effacer tout le mot'
-        },
-        {
-            icon: '🏆',
-            text: 'Score = 10pts/mot + bonus vitesse (<30s) + bonus longueur + 20pts si parfait'
-        },
-        {
-            icon: '🔄',
-            text: 'Les lettres communes se remplissent automatiquement'
-        }
+        { icon: '🖱️', text: 'Cliquez sur une définition pour sélectionner un mot.' },
+        { icon: '⌨️', text: 'Cliquez une 2ème fois sur une case pour changer de direction (H/V).' },
+        { icon: '🗑️', text: 'Double-cliquez sur une case pour effacer le mot entier.' },
+        { icon: '🔄', text: 'Les lettres aux intersections se remplissent automatiquement.' }
     ];
 
     tips.forEach(tip => {
@@ -1034,7 +975,6 @@ function renderSolvePuzzleScreen() {
     }
 }
 
-// 🎯 AMÉLIORATION: Rendu de grille avec auto-complétion
 function renderGrid(): HTMLElement {
     const grid = document.createElement('div');
     
@@ -1043,9 +983,8 @@ function renderGrid(): HTMLElement {
         return grid;
     }
     
-    // Ajustement de la classe CSS pour la taille de la grille
     const gridSize = appState.currentPuzzle.grid.length;
-    grid.className = `crossword-grid grid-${gridSize}`;
+    grid.className = `crossword-grid`;
     grid.style.gridTemplateColumns = `repeat(${gridSize}, 1fr)`;
 
 
@@ -1053,10 +992,12 @@ function renderGrid(): HTMLElement {
         row.forEach((cell, colIndex) => {
             const cellElement = document.createElement('div');
             cellElement.className = 'grid-cell';
+            cellElement.dataset.row = rowIndex.toString();
+            cellElement.dataset.col = colIndex.toString();
             
-            if (cell.isBlocked || cell.letter === null) { // MODIFIÉ: les cases non utilisées sont aussi bloquées visuellement
+            if (cell.letter === null) {
                 cellElement.classList.add('blocked');
-            } else if (cell.letter) {
+            } else {
                 cellElement.classList.add('active');
                 
                 if (cell.number) {
@@ -1073,27 +1014,27 @@ function renderGrid(): HTMLElement {
                 input.dataset.row = rowIndex.toString();
                 input.dataset.col = colIndex.toString();
                 
-                // 🚀 AMÉLIORATION: Auto-navigation et validation + effacement
                 input.oninput = (e) => {
                     const target = e.target as HTMLInputElement;
                     target.value = target.value.toUpperCase();
                     updateUserAnswer(rowIndex, colIndex, target.value);
                     
-                    // Auto-complétion si le mot est complet
                     checkWordCompletion(rowIndex, colIndex);
                     
-                    // Navigation automatique à la case suivante
                     if (target.value) {
                         navigateToNextCell(rowIndex, colIndex);
                     }
                 };
                 
-                // 🚀 NOUVEAU: Double-clic pour effacer tout le mot
+                // --- NOUVELLE GESTION DE DIRECTION ---
+                input.onfocus = () => {
+                    handleCellFocus(rowIndex, colIndex);
+                };
+                
                 input.ondblclick = () => {
                     clearWordAtPosition(rowIndex, colIndex);
                 };
                 
-                // 🚀 NOUVEAU: Raccourci Escape pour effacer le mot
                 input.onkeydown = (e) => {
                     if (e.key === 'Escape') {
                         clearWordAtPosition(rowIndex, colIndex);
@@ -1101,7 +1042,6 @@ function renderGrid(): HTMLElement {
                     }
                 };
                 
-                // Validation visuelle
                 if (cell.isCorrect === true) {
                     cellElement.classList.add('correct');
                 } else if (cell.isCorrect === false) {
@@ -1118,215 +1058,103 @@ function renderGrid(): HTMLElement {
     return grid;
 }
 
-// 🚀 FONCTION ENTIÈREMENT RECODÉE: Focus sur un mot spécifique
-function focusOnWord(word: WordEntry) {
-    if (!appState.currentPuzzle?.grid) return;
-    
-    console.log(`🎯 Recherche du focus pour "${word.word}" #${word.number} (${word.direction})`);
-    
-    // 🔍 STRATÉGIE 1: Utiliser les coordonnées stockées du mot
-    if (word.startRow !== undefined && word.startCol !== undefined) {
-        const targetRow = word.startRow;
-        const targetCol = word.startCol;
-        
-        console.log(`📍 Coordonnées stockées: (${targetRow}, ${targetCol})`);
-        
-        // Vérifier que cette case contient bien une partie du mot
-        if (targetRow >= 0 && targetRow < appState.currentPuzzle.grid.length &&
-            targetCol >= 0 && targetCol < appState.currentPuzzle.grid[0].length) {
-            
-            const cell = appState.currentPuzzle.grid[targetRow][targetCol];
-            const expectedLetter = word.word[0].toUpperCase();
-            
-            if (cell.letter === expectedLetter) {
-                console.log(`✅ Case trouvée avec la bonne lettre "${expectedLetter}"`);
-                focusOnCell(targetRow, targetCol, word);
-                return;
-            }
+// --- NOUVELLE GESTION DE DIRECTION ---
+function getWordsAtPosition(row: number, col: number): WordEntry[] {
+    if (!appState.currentPuzzle) return [];
+    return appState.currentPuzzle.words.filter(word => {
+        if (word.startRow === undefined || word.startCol === undefined) return false;
+        if (word.direction === 'horizontal') {
+            return row === word.startRow && col >= word.startCol && col < word.startCol + word.word.length;
+        } else { // vertical
+            return col === word.startCol && row >= word.startRow && row < word.startRow + word.word.length;
         }
-    }
-    
-    // 🔍 STRATÉGIE 2: Recherche par numéro dans toute la grille
-    console.log(`🔍 Recherche du numéro ${word.number} dans la grille...`);
-    
-    for (let row = 0; row < appState.currentPuzzle.grid.length; row++) {
-        for (let col = 0; col < appState.currentPuzzle.grid[row].length; col++) {
-            const cell = appState.currentPuzzle.grid[row][col];
-            
-            if (cell.number === word.number) {
-                console.log(`✅ Numéro ${word.number} trouvé à (${row}, ${col})`);
-                focusOnCell(row, col, word);
-                return;
-            }
-        }
-    }
-    
-    // 🔍 STRATÉGIE 3: Recherche par première lettre du mot
-    console.log(`🔍 Recherche de la première lettre "${word.word[0]}" du mot...`);
-    
-    const firstLetter = word.word[0].toUpperCase();
-    const potentialCells: {row: number, col: number, score: number}[] = [];
-    
-    for (let row = 0; row < appState.currentPuzzle.grid.length; row++) {
-        for (let col = 0; col < appState.currentPuzzle.grid[row].length; col++) {
-            const cell = appState.currentPuzzle.grid[row][col];
-            
-            if (cell.letter === firstLetter) {
-                // Vérifier si cette position peut être le début de notre mot
-                const score = calculateWordStartScore(word, row, col);
-                if (score > 0) {
-                    potentialCells.push({row, col, score});
-                }
-            }
-        }
-    }
-    
-    if (potentialCells.length > 0) {
-        // Prendre la meilleure position
-        potentialCells.sort((a, b) => b.score - a.score);
-        const best = potentialCells[0];
-        console.log(`✅ Meilleure position trouvée à (${best.row}, ${best.col}) score: ${best.score}`);
-        focusOnCell(best.row, best.col, word);
-        return;
-    }
-    
-    console.error(`❌ Impossible de trouver le début du mot "${word.word}" #${word.number}`);
+    });
 }
 
-// 🧮 NOUVELLE FONCTION: Calcule le score d'une position pour être le début d'un mot
-function calculateWordStartScore(word: WordEntry, row: number, col: number): number {
-    if (!appState.currentPuzzle?.grid) return 0;
+function handleCellFocus(row: number, col: number) {
+    const wordsHere = getWordsAtPosition(row, col);
+    const canGoHorizontal = wordsHere.some(w => w.direction === 'horizontal');
+    const canGoVertical = wordsHere.some(w => w.direction === 'vertical');
     
-    const grid = appState.currentPuzzle.grid;
-    let score = 0;
-    
-    // Vérifier si on peut placer le mot entier dans cette direction
-    if (word.direction === 'horizontal') {
-        if (col + word.word.length > grid[0].length) return 0;
-        
-        // Vérifier chaque lettre du mot
-        for (let i = 0; i < word.word.length; i++) {
-            if (col + i >= grid[0].length) return 0;
-            
-            const cell = grid[row][col + i];
-            const expectedLetter = word.word[i].toUpperCase();
-            
-            if (cell.letter === expectedLetter) {
-                score += 10; // Bonne lettre = +10 points
-            } else if (cell.letter !== null) {
-                return 0; // Lettre incorrecte = échec
-            }
+    const isSameCell = appState.lastFocusedCell?.row === row && appState.lastFocusedCell?.col === col;
+
+    if (isSameCell) {
+        // Toggle direction if both are possible
+        if (canGoHorizontal && canGoVertical) {
+            appState.currentDirection = appState.currentDirection === 'horizontal' ? 'vertical' : 'horizontal';
         }
     } else {
-        if (row + word.word.length > grid.length) return 0;
-        
-        // Vérifier chaque lettre du mot
-        for (let i = 0; i < word.word.length; i++) {
-            if (row + i >= grid.length) return 0;
-            
-            const cell = grid[row + i][col];
-            const expectedLetter = word.word[i].toUpperCase();
-            
-            if (cell.letter === expectedLetter) {
-                score += 10; // Bonne lettre = +10 points
-            } else if (cell.letter !== null) {
-                return 0; // Lettre incorrecte = échec
-            }
+        // On new cell, prefer horizontal, then vertical
+        if (canGoHorizontal) {
+            appState.currentDirection = 'horizontal';
+        } else if (canGoVertical) {
+            appState.currentDirection = 'vertical';
         }
     }
     
-    return score;
+    appState.lastFocusedCell = { row, col };
+    highlightActiveWord();
 }
 
-// 🎯 NOUVELLE FONCTION: Focus sur une case spécifique avec effet
-function focusOnCell(row: number, col: number, word: WordEntry) {
-    const input = document.querySelector(`input[data-row="${row}"][data-col="${col}"]`) as HTMLInputElement;
+function highlightActiveWord() {
+    // Clear previous highlight
+    document.querySelectorAll('.active-word').forEach(el => el.classList.remove('active-word'));
+
+    if (!appState.lastFocusedCell) return;
+
+    const { row, col } = appState.lastFocusedCell;
+    const words = getWordsAtPosition(row, col);
+    const activeWord = words.find(w => w.direction === appState.currentDirection);
+
+    if (activeWord && activeWord.startRow !== undefined && activeWord.startCol !== undefined) {
+        for (let i = 0; i < activeWord.word.length; i++) {
+            const r = activeWord.direction === 'horizontal' ? activeWord.startRow : activeWord.startRow + i;
+            const c = activeWord.direction === 'horizontal' ? activeWord.startCol + i : activeWord.startCol;
+            const cellEl = document.querySelector(`.grid-cell[data-row="${r}"][data-col="${c}"]`);
+            if (cellEl) {
+                cellEl.classList.add('active-word');
+            }
+        }
+    }
+}
+// --- FIN NOUVELLE GESTION DE DIRECTION ---
+
+
+function focusOnWord(word: WordEntry) {
+    if (!appState.currentPuzzle?.grid || word.startRow === undefined || word.startCol === undefined) return;
     
+    // MODIFIÉ: Verrouiller la direction en cliquant sur une définition
+    appState.currentDirection = word.direction;
+    
+    const input = document.querySelector(`input[data-row="${word.startRow}"][data-col="${word.startCol}"]`) as HTMLInputElement;
     if (input) {
         input.focus();
         input.select();
         
-        console.log(`🎯 Focus réussi sur (${row}, ${col}) pour "${word.word}"`);
-        
-        // 🎨 EFFET VISUEL: Highlight temporaire du mot
-        highlightWordTemporarily(word);
+        // La fonction de focus mettra à jour le highlight
+        handleCellFocus(word.startRow, word.startCol);
     } else {
-        console.error(`❌ Input non trouvé à (${row}, ${col})`);
-        
-        // Afficher toutes les inputs disponibles pour debug
-        const allInputs = document.querySelectorAll('input[data-row][data-col]');
-        console.log(`📊 ${allInputs.length} inputs trouvés dans la grille`);
+        console.error(`❌ Input non trouvé pour le mot "${word.word}"`);
     }
 }
 
-// 🎨 NOUVELLE FONCTION: Highlight visuel temporaire
-function highlightWordTemporarily(word: WordEntry) {
-    if (word.startRow === undefined || word.startCol === undefined || !appState.currentPuzzle?.grid) return;
-    
-    const cellsToHighlight: HTMLElement[] = [];
-    
-    // Trouve toutes les cases du mot
-    for (let i = 0; i < word.word.length; i++) {
-        const cellRow = word.direction === 'horizontal' ? word.startRow : word.startRow + i;
-        const cellCol = word.direction === 'horizontal' ? word.startCol + i : word.startCol;
-        
-        const input = document.querySelector(`input[data-row="${cellRow}"][data-col="${cellCol}"]`) as HTMLInputElement;
-        if (input && input.parentElement) {
-            cellsToHighlight.push(input.parentElement);
-        }
-    }
-    
-    // Ajoute l'effet highlight
-    cellsToHighlight.forEach(cell => {
-        cell.style.backgroundColor = '#ffeb3b';
-        cell.style.transform = 'scale(1.05)';
-        cell.style.transition = 'all 0.3s ease';
-    });
-    
-    // Retire l'effet après 1.5 secondes
-    setTimeout(() => {
-        cellsToHighlight.forEach(cell => {
-            cell.style.backgroundColor = '';
-            cell.style.transform = '';
-        });
-    }, 1500);
-}
 function clearWordAtPosition(row: number, col: number) {
     if (!appState.currentPuzzle || !appState.currentPuzzle.grid) return;
     
-    // Trouve le(s) mot(s) qui contient/contiennent cette case
-    const wordsAtPosition = appState.currentPuzzle.words.filter(word => {
-        if (word.startRow === undefined || word.startCol === undefined) return false;
-        
-        if (word.direction === 'horizontal') {
-            return row === word.startRow && 
-                   col >= word.startCol && 
-                   col < word.startCol + word.word.length;
-        } else {
-            return col === word.startCol && 
-                   row >= word.startRow && 
-                   row < word.startRow + word.word.length;
-        }
-    });
-    
-    // Si plusieurs mots se croisent, demande lequel effacer
+    const wordsAtPosition = getWordsAtPosition(row, col);
     let wordToClear: WordEntry | undefined;
     
     if (wordsAtPosition.length > 1) {
-        // Affiche un menu pour choisir quel mot effacer
-        const choice = confirm(`Plusieurs mots se croisent ici.\nCliquez OK pour effacer le mot HORIZONTAL, Annuler pour le VERTICAL.`);
-        wordToClear = choice ? 
-            wordsAtPosition.find(w => w.direction === 'horizontal') : 
-            wordsAtPosition.find(w => w.direction === 'vertical');
+        // Priorise la direction actuelle pour l'effacement
+        wordToClear = wordsAtPosition.find(w => w.direction === appState.currentDirection) || wordsAtPosition[0];
     } else if (wordsAtPosition.length === 1) {
         wordToClear = wordsAtPosition[0];
     } else {
-        return; // Aucun mot trouvé
+        return;
     }
     
     if (!wordToClear || wordToClear.startRow === undefined || wordToClear.startCol === undefined) return;
     
-    // Efface toutes les lettres du mot
     for (let i = 0; i < wordToClear.word.length; i++) {
         const cellRow = wordToClear.direction === 'horizontal' ? wordToClear.startRow : wordToClear.startRow + i;
         const cellCol = wordToClear.direction === 'horizontal' ? wordToClear.startCol + i : wordToClear.startCol;
@@ -1336,12 +1164,9 @@ function clearWordAtPosition(row: number, col: number) {
             cell.userLetter = '';
             cell.isCorrect = undefined;
             
-            // Met à jour visuellement
             const input = document.querySelector(`input[data-row="${cellRow}"][data-col="${cellCol}"]`) as HTMLInputElement;
             if (input) {
                 input.value = '';
-                input.style.background = '';
-                // Retire les classes de validation
                 const cellElement = input.parentElement;
                 if (cellElement) {
                     cellElement.classList.remove('correct', 'incorrect');
@@ -1350,7 +1175,6 @@ function clearWordAtPosition(row: number, col: number) {
         }
     }
     
-    // Focus sur la première case du mot effacé
     const firstInput = document.querySelector(`input[data-row="${wordToClear.startRow}"][data-col="${wordToClear.startCol}"]`) as HTMLInputElement;
     if (firstInput) {
         firstInput.focus();
@@ -1358,84 +1182,51 @@ function clearWordAtPosition(row: number, col: number) {
     
     console.log(`✅ Mot "${wordToClear.word}" effacé`);
 }
+
+// MODIFIÉ: Logique de navigation simplifiée grâce au verrou de direction
 function navigateToNextCell(currentRow: number, currentCol: number) {
     if (!appState.currentPuzzle || !appState.currentPuzzle.grid) return;
     
     const grid = appState.currentPuzzle.grid;
-    
-    // Trouve le mot qui contient cette case pour déterminer la direction
-    const currentWord = appState.currentPuzzle.words.find(word => {
-        if (word.startRow === undefined || word.startCol === undefined) return false;
-        
-        if (word.direction === 'horizontal') {
-            return currentRow === word.startRow && 
-                   currentCol >= word.startCol && 
-                   currentCol < word.startCol + word.word.length;
-        } else {
-            return currentCol === word.startCol && 
-                   currentRow >= word.startRow && 
-                   currentRow < word.startRow + word.word.length;
-        }
-    });
-    
-    if (!currentWord) return;
-    
-    // Navigation selon la direction du mot
-    if (currentWord.direction === 'horizontal') {
+    const direction = appState.currentDirection; // Utilise la direction verrouillée
+
+    if (direction === 'horizontal') {
         for (let col = currentCol + 1; col < grid[currentRow].length; col++) {
             const cell = grid[currentRow][col];
-            if (cell.letter && !cell.userLetter) {
+            if (cell.letter) {
                 const nextInput = document.querySelector(`input[data-row="${currentRow}"][data-col="${col}"]`) as HTMLInputElement;
                 if (nextInput) {
                     nextInput.focus();
                     return;
                 }
-            }
+            } else { break; } // Arrêt sur une case bloquée
         }
-    } else {
-        // 🚀 NOUVEAU: Navigation verticale
+    } else { // 'vertical'
         for (let row = currentRow + 1; row < grid.length; row++) {
             const cell = grid[row][currentCol];
-            if (cell.letter && !cell.userLetter) {
+            if (cell.letter) {
                 const nextInput = document.querySelector(`input[data-row="${row}"][data-col="${currentCol}"]`) as HTMLInputElement;
                 if (nextInput) {
                     nextInput.focus();
                     return;
                 }
-            }
+            } else { break; } // Arrêt sur une case bloquée
         }
     }
 }
 
-// 🚀 NOUVELLE FONCTION: Vérification de complétion de mot
 function checkWordCompletion(row: number, col: number) {
     if (!appState.currentPuzzle) return;
     
-    // Trouve le mot qui contient cette case
-    const wordsToCheck = appState.currentPuzzle.words.filter(word => {
-        if (word.startRow === undefined || word.startCol === undefined) return false;
-        
-        if (word.direction === 'horizontal') {
-            return row === word.startRow && 
-                   col >= word.startCol && 
-                   col < word.startCol + word.word.length;
-        } else {
-            return col === word.startCol && 
-                   row >= word.startRow && 
-                   row < word.startRow + word.word.length;
-        }
-    });
+    const wordsToCheck = getWordsAtPosition(row, col);
     
     wordsToCheck.forEach(word => {
-        const isComplete = checkIfWordIsComplete(word);
-        if (isComplete) {
-            // Auto-remplir les intersections si le mot est correct
+        if (checkIfWordIsComplete(word)) {
             fillIntersectingLetters(word);
         }
     });
 }
 
-// 🚀 NOUVELLE FONCTION: Vérifie si un mot est complet
 function checkIfWordIsComplete(word: WordEntry): boolean {
     if (!appState.currentPuzzle || !appState.currentPuzzle.grid) return false;
     if (word.startRow === undefined || word.startCol === undefined) return false;
@@ -1455,24 +1246,20 @@ function checkIfWordIsComplete(word: WordEntry): boolean {
     return true;
 }
 
-// 🚀 NOUVELLE FONCTION: Remplit les lettres croisées
 function fillIntersectingLetters(completedWord: WordEntry) {
     if (!appState.currentPuzzle || !appState.currentPuzzle.grid) return;
     if (completedWord.startRow === undefined || completedWord.startCol === undefined) return;
     
     const grid = appState.currentPuzzle.grid;
     
-    // Pour chaque lettre du mot complété
     for (let i = 0; i < completedWord.word.length; i++) {
         const cellRow = completedWord.direction === 'horizontal' ? completedWord.startRow : completedWord.startRow + i;
         const cellCol = completedWord.direction === 'horizontal' ? completedWord.startCol + i : completedWord.startCol;
         
         const letter = completedWord.word[i].toUpperCase();
         
-        // Trouve la case d'intersection dans la grille
         const intersectingCell = grid[cellRow][cellCol];
         
-        // Si cette case n'a pas encore de lettre de l'utilisateur, on la remplit
         if (intersectingCell && !intersectingCell.userLetter) {
             intersectingCell.userLetter = letter;
             updateUserAnswer(cellRow, cellCol, letter);
@@ -1480,12 +1267,10 @@ function fillIntersectingLetters(completedWord: WordEntry) {
             const input = document.querySelector(`input[data-row="${cellRow}"][data-col="${cellCol}"]`) as HTMLInputElement;
             if (input) {
                 input.value = letter;
-                input.style.background = '#e7f3ff'; // Met en évidence la lettre auto-complétée
             }
         }
     }
 }
-
 
 function renderClues(): HTMLElement {
     const cluesContainer = document.createElement('div');
@@ -1503,29 +1288,23 @@ function renderClues(): HTMLElement {
     verticalClues.className = 'clues-section';
     verticalClues.innerHTML = '<h3>Vertical</h3>';
 
-    const horizontalList = document.createElement('ul'); // ul pour une liste non ordonnée plus sémantique
+    const horizontalList = document.createElement('ul');
     const verticalList = document.createElement('ul');
 
-    // Trier les mots par leur numéro pour un affichage ordonné
-    const sortedWords = [...appState.currentPuzzle.words].sort((a,b) => (a.number || 0) - (b.number || 0));
+    const sortedWords = [...appState.currentPuzzle.words]
+        .filter(w => w.number)
+        .sort((a,b) => (a.number!) - (b.number!));
 
+    const displayedNumbers: Set<number> = new Set();
     sortedWords.forEach(word => {
-        if(!word.number) return; // Ne pas afficher les mots qui n'ont pas pu être placés
+        if(displayedNumbers.has(word.number!)) return;
 
         const listItem = document.createElement('li');
         listItem.innerHTML = `<span class="clue-number">${word.number}.</span> ${word.definition}`;
         
         listItem.style.cursor = 'pointer';
-        listItem.style.transition = 'background-color 0.2s ease';
         listItem.onclick = () => {
             focusOnWord(word);
-        };
-        
-        listItem.onmouseover = () => {
-            listItem.style.backgroundColor = '#e7f3ff';
-        };
-        listItem.onmouseout = () => {
-            listItem.style.backgroundColor = '';
         };
         
         if (word.direction === 'horizontal') {
@@ -1533,6 +1312,7 @@ function renderClues(): HTMLElement {
         } else {
             verticalList.appendChild(listItem);
         }
+        displayedNumbers.add(word.number!);
     });
 
     horizontalClues.appendChild(horizontalList);
@@ -1575,7 +1355,7 @@ function handleSavePuzzle(form: HTMLFormElement) {
                 id: wordId,
                 word: word.trim().toUpperCase(),
                 definition: definition.trim(),
-                direction: 'horizontal' // La direction est déterminée par l'algorithme
+                direction: 'horizontal'
             });
         });
 
@@ -1583,16 +1363,14 @@ function handleSavePuzzle(form: HTMLFormElement) {
             throw new Error("Le puzzle doit contenir au moins un mot.");
         }
 
-        // Création du puzzle SANS la grille pour l'instant
         const puzzle: CrosswordPuzzle = {
             id: generateId(),
             title: title.trim(),
             theme: theme.trim(),
-            words: words, // words sans positions pour l'instant
+            words: words,
             createdAt: new Date().toISOString()
         };
 
-        // Génération de la grille et mise à jour des mots avec leurs positions
         puzzle.grid = generateGrid(puzzle.words);
 
         appState.puzzles.push(puzzle);
@@ -1613,6 +1391,8 @@ function startPuzzle(puzzleId: string) {
         appState.userAnswers.clear();
         appState.score = 0;
         appState.startTime = null;
+        appState.lastFocusedCell = null;
+        appState.currentDirection = 'horizontal';
         
         if (appState.currentPuzzle && appState.currentPuzzle.grid) {
             appState.currentPuzzle.grid.forEach(row => {
@@ -1641,7 +1421,6 @@ function updateUserAnswer(row: number, col: number, letter: string) {
     }
 }
 
-// 🚀 AMÉLIORATION: Système de scoring avancé
 function checkAnswers() {
     if (!appState.currentPuzzle || !appState.currentPuzzle.grid) return;
 
@@ -1657,7 +1436,7 @@ function checkAnswers() {
 
     appState.currentPuzzle.grid.forEach(row => {
         row.forEach(cell => {
-            if (cell.letter) { // Seules les cases avec des lettres comptent
+            if (cell.letter) {
                 totalCells++;
                 if (cell.userLetter && cell.userLetter.toUpperCase() === cell.letter.toUpperCase()) {
                     cell.isCorrect = true;
@@ -1874,18 +1653,10 @@ function renderApp() {
             renderWelcomeScreen();
             break;
         case 'createPuzzle':
-            if (appState.studentAccessMode) {
-                navigateTo('welcome');
-            } else {
-                renderCreatePuzzleScreen();
-            }
+            renderCreatePuzzleScreen();
             break;
         case 'puzzleList':
-            if (appState.studentAccessMode) {
-                navigateTo('welcome');
-            } else {
-                renderPuzzleListScreen();
-            }
+            renderPuzzleListScreen();
             break;
         case 'solvePuzzle':
             renderSolvePuzzleScreen();
@@ -1894,736 +1665,97 @@ function renderApp() {
             renderPuzzleCompleteScreen();
             break;
         default:
-            console.warn(`Unknown mode: ${appState.mode}`);
             navigateTo('welcome');
     }
 }
 
 // --- CSS Styles complets ---
 const styles = `
-/* Reset and Base Styles */
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
+:root {
+    --primary-color: #0066cc;
+    --secondary-color: #6c757d;
+    --light-bg: #f8f9fa;
+    --dark-bg: #e9ecef;
+    --text-color: #2c3e50;
+    --highlight-color: #ffeb3b; /* Jaune pour le surlignage du mot actif */
+    /* 🎨 MODIFICATION COULEUR */
+    --blocked-cell-color: #7f8c8d; /* Gris ardoise plus doux */
 }
 
+* { margin: 0; padding: 0; box-sizing: border-box; }
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    background: linear-gradient(135deg, var(--light-bg) 0%, var(--dark-bg) 100%);
     min-height: 100vh;
-    color: #2c3e50;
+    color: var(--text-color);
 }
-
-/* 🚀 NOUVEAUX STYLES pour auto-complétion */
-.grid-cell.correct input {
-    background: #d4edda !important;
-    color: #155724;
-    border-color: #c3e6cb;
-}
-
-.grid-cell.incorrect input {
-    background: #f8d7da !important;
-    color: #721c24;
-    border-color: #f5c6cb;
-}
-
-.success-message {
-    background: #d4edda;
-    color: #155724;
-    padding: 1rem;
-    border-radius: 8px;
-    margin-bottom: 1rem;
-    border: 1px solid #c3e6cb;
-}
-
-.score-details {
-    margin-top: 1rem;
-    font-size: 0.9rem;
-}
-
-.score-details p {
-    margin: 0.5rem 0;
-}
-
-/* Header Styles */
 .app-header {
     background: linear-gradient(135deg, #0066cc 0%, #1e88e5 100%);
-    color: white;
-    padding: 1rem 0;
-    box-shadow: 0 2px 10px rgba(0,102,204,0.2);
-}
-
-.header-content {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 0 2rem;
-}
-
-.logo-section {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-}
-
-.logo-placeholder {
-    background: #ffb800;
-    color: #0066cc;
-    padding: 0.5rem 1rem;
-    border-radius: 8px;
-    font-weight: bold;
-    font-size: 1.2rem;
-}
-
-.app-title {
-    font-size: 2rem;
-    font-weight: 300;
-    margin: 0;
-}
-
-.student-mode {
-    background: rgba(255,255,255,0.2);
-    padding: 0.25rem 0.75rem;
-    border-radius: 20px;
-    font-size: 0.9rem;
-    margin-left: auto;
-}
-
-/* Layout */
-.screen {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 2rem;
-    min-height: calc(100vh - 100px);
-}
-
-/* Buttons */
-.btn {
-    padding: 0.75rem 1.5rem;
-    border: none;
-    border-radius: 8px;
-    font-size: 1rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    text-decoration: none;
-    display: inline-block;
-    text-align: center;
-}
-
-.btn-primary {
-    background: linear-gradient(135deg, #0066cc 0%, #1e88e5 100%);
-    color: white;
-    box-shadow: 0 4px 15px rgba(0,102,204,0.3);
-}
-
-.btn-primary:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(0,102,204,0.4);
-}
-
-.btn-secondary {
-    background: #6c757d;
-    color: white;
-}
-
-.btn-secondary:hover {
-    background: #5a6268;
-    transform: translateY(-1px);
-}
-
-.btn-remove {
-    background: #dc3545;
-    color: white;
-    padding: 0.5rem;
-    border-radius: 50%;
-    width: 40px;
-    height: 40px;
-    font-size: 1.2rem;
-    line-height: 1;
-}
-
-/* Welcome Screen */
-.welcome-screen {
-    text-align: center;
-    padding: 4rem 2rem;
-}
-
-.welcome-intro h2 {
-    font-size: 2.5rem;
-    margin-bottom: 1rem;
-    color: #0066cc;
-}
-
-.welcome-intro p {
-    font-size: 1.2rem;
-    margin-bottom: 3rem;
-    color: #6c757d;
-    max-width: 600px;
-    margin-left: auto;
-    margin-right: auto;
-}
-
-.button-container {
-    display: flex;
-    gap: 1rem;
-    justify-content: center;
-    flex-wrap: wrap;
-}
-
-.student-error {
-    color: #dc3545;
-    font-size: 1.1rem;
-    text-align: center;
-    margin: 2rem 0;
-    padding: 1rem;
-    background: #f8d7da;
-    border: 1px solid #f5c6cb;
-    border-radius: 8px;
-}
-
-/* Form Styles */
-.puzzle-form {
-    background: white;
-    padding: 2rem;
-    border-radius: 12px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-}
-
-.form-section {
-    margin-bottom: 2rem;
-    padding-bottom: 2rem;
-    border-bottom: 1px solid #e9ecef;
-}
-
-.form-section:last-child {
-    border-bottom: none;
-    margin-bottom: 0;
-}
-
-.form-section h3 {
-    color: #0066cc;
-    margin-bottom: 1rem;
-    font-size: 1.3rem;
-}
-
-.form-group {
-    margin-bottom: 1rem;
-}
-
-.form-group label {
-    display: block;
-    margin-bottom: 0.5rem;
-    font-weight: 500;
-    color: #2c3e50;
-}
-
-.form-group input,
-.form-group textarea {
-    width: 100%;
-    padding: 0.75rem;
-    border: 2px solid #e9ecef;
-    border-radius: 8px;
-    font-size: 1rem;
-    transition: border-color 0.3s ease;
-}
-
-.form-group input:focus,
-.form-group textarea:focus {
-    outline: none;
-    border-color: #0066cc;
-    box-shadow: 0 0 0 3px rgba(0,102,204,0.1);
-}
-
-/* Words Container */
-.words-container {
-    space-y: 1rem;
-}
-
-.word-entry {
-    background: #f8f9fa;
-    padding: 1.5rem;
-    border-radius: 8px;
-    margin-bottom: 1rem;
-    border-left: 4px solid #0066cc;
-}
-
-.word-group {
-    display: grid;
-    grid-template-columns: 1fr 2fr auto;
-    gap: 1rem;
-    align-items: end;
-}
-
-.word-group label {
-    margin-bottom: 0.5rem;
-}
-
-.add-word-btn {
-    margin-top: 1rem;
-}
-
-.form-controls {
-    display: flex;
-    gap: 1rem;
-    justify-content: flex-end;
-    margin-top: 2rem;
-    padding-top: 2rem;
-    border-top: 1px solid #e9ecef;
-}
-
-/* Puzzle List */
-.puzzle-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 2rem;
-    margin-bottom: 2rem;
-}
-
-.puzzle-card {
-    background: white;
-    border-radius: 12px;
-    padding: 1.5rem;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-    border-left: 4px solid #0066cc;
-}
-
-.puzzle-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
-}
-
-.puzzle-card.completed {
-    border-left-color: #28a745;
-}
-
-.puzzle-card-header h3 {
-    color: #0066cc;
-    margin-bottom: 0.5rem;
-}
-
-.puzzle-theme {
-    background: #e7f3ff;
-    color: #0066cc;
-    padding: 0.25rem 0.75rem;
-    border-radius: 20px;
-    font-size: 0.9rem;
-    display: inline-block;
-}
-
-.puzzle-card-content {
-    margin: 1rem 0;
-    color: #6c757d;
-}
-
-.completed-badge {
-    background: #28a745;
-    color: white;
-    padding: 0.25rem 0.75rem;
-    border-radius: 20px;
-    font-size: 0.8rem;
-    display: inline-block;
-    margin-top: 0.5rem;
-}
-
-.puzzle-card-actions {
-    display: flex;
-    gap: 0.5rem;
-}
-
-.no-puzzles {
-    text-align: center;
-    padding: 3rem;
-    color: #6c757d;
-}
-
-.back-btn {
-    margin-top: 2rem;
-}
-
-/* Solve Puzzle Screen */
-.puzzle-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 2rem;
-    padding: 1.5rem;
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-}
-
-.puzzle-title-section h2 {
-    color: #0066cc;
-    margin-bottom: 0.5rem;
-}
-
-.puzzle-stats {
-    display: flex;
-    gap: 2rem;
-    align-items: center;
-}
-
-.timer, .score {
-    font-size: 1.2rem;
-    font-weight: 500;
-    padding: 0.5rem 1rem;
-    background: #e7f3ff;
-    border-radius: 8px;
-    color: #0066cc;
-}
-
-.puzzle-content {
-    display: grid;
-    grid-template-columns: 1fr 300px;
-    gap: 2rem;
-    margin-bottom: 2rem;
-    align-items: flex-start;
-}
-
-/* Crossword Grid */
-.grid-container {
-    background: white;
-    padding: 2rem;
-    border-radius: 12px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-    position: relative;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
-
-.crossword-grid {
-    display: grid;
-    gap: 2px;
-    aspect-ratio: 1 / 1;
-}
-
-.grid-cell {
-    width: 100%;
-    height: 100%;
-    position: relative;
-    background: #f8f9fa;
-}
-
-.grid-cell.blocked {
-    background: #2c3e50;
-    border: none;
-}
-
-.grid-cell.active {
-    background: white;
-    border: 1px solid #bdc3c7;
-}
-
-.cell-number {
-    position: absolute;
-    top: 1px;
-    left: 2px;
-    font-size: 0.6rem;
-    font-weight: bold;
-    color: #0066cc;
-    z-index: 2;
-    line-height: 1;
-}
-
-.grid-cell input {
-    width: 100%;
-    height: 100%;
-    border: none;
-    outline: none;
-    text-align: center;
-    font-size: 1.1rem;
-    font-weight: bold;
-    color: #2c3e50;
-    background: transparent;
-    z-index: 1;
-    position: relative;
-    padding: 0;
-}
-
-.grid-cell input:focus {
-    background: #e7f3ff;
-}
-
-/* Clues */
-.clues-container {
-    background: white;
-    padding: 1.5rem;
-    border-radius: 12px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-    max-height: 65vh; /* Hauteur maximale pour permettre le scroll */
-    overflow-y: auto;
-}
-.verify-section-top {
-    margin-bottom: 1rem;
-}
-.verify-btn {
-    width: 100%;
-}
-
-.clues-section {
-    margin-bottom: 1.5rem;
-}
-
-.clues-section h3 {
-    color: #0066cc;
-    margin-bottom: 1rem;
-    font-size: 1.2rem;
-    padding-bottom: 0.5rem;
-    border-bottom: 2px solid #e9ecef;
-}
-
-.clues-section ul {
-    list-style: none;
-    padding: 0;
-}
-
-.clues-section li {
-    margin-bottom: 0.75rem;
-    padding: 0.5rem;
-    border-radius: 6px;
-    border-left: 3px solid transparent;
-}
-
-.clues-section li:hover {
-    background: #e7f3ff;
-    border-left-color: #0066cc;
-}
-
-.clue-number {
-    font-weight: bold;
-    color: #0066cc;
-    margin-right: 0.5rem;
-}
-
-/* Puzzle Controls simplifiés */
-.puzzle-controls {
-    display: flex;
-    gap: 1rem;
-    justify-content: center;
-    margin-bottom: 1rem;
-}
-
-.puzzle-controls .btn {
-    min-width: 120px;
-}
-
-/* 🚀 NOUVELLES BULLES D'AIDE */
-.help-section {
-    background: white;
-    padding: 1.5rem;
-    border-radius: 12px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-    margin-top: 1rem;
-    border-left: 4px solid #0066cc;
-}
-
-.help-tip {
-    display: flex;
-    align-items: center;
-    margin-bottom: 0.75rem;
-    padding: 0.5rem;
-    background: #f8f9fa;
-    border-radius: 6px;
-    font-size: 0.9rem;
-    line-height: 1.4;
-}
-
-.help-tip:last-child {
-    margin-bottom: 0;
-}
-
-.tip-icon {
-    font-size: 1.2rem;
-    margin-right: 0.75rem;
-    flex-shrink: 0;
-}
-
-/* Puzzle Complete */
-.puzzle-complete-screen {
-    text-align: center;
-    padding: 4rem 2rem;
-}
-
-.celebration {
-    font-size: 4rem;
-    margin-bottom: 1rem;
-}
-
-.puzzle-complete-screen h2 {
-    color: #28a745;
-    font-size: 2.5rem;
-    margin-bottom: 1rem;
-}
-
-.score-display {
-    background: white;
-    padding: 2rem;
-    border-radius: 12px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-    margin: 2rem 0;
-    max-width: 400px;
-    margin-left: auto;
-    margin-right: auto;
-}
-
-.score-value {
-    font-size: 3rem;
-    font-weight: bold;
-    color: #0066cc;
-    margin: 1rem 0;
-}
-
-.puzzle-complete-controls {
-    display: flex;
-    gap: 1rem;
-    justify-content: center;
-    flex-wrap: wrap;
-}
-
-.finish-message {
-    margin-top: 2rem;
-    color: #6c757d;
-    font-style: italic;
-}
-
-/* Modal */
-.modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0,0,0,0.5);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-}
-
-.modal-content {
-    background: white;
-    padding: 2rem;
-    border-radius: 12px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-    max-width: 500px;
-    width: 90%;
-}
-
-.modal-content h3 {
-    color: #0066cc;
-    margin-bottom: 1rem;
-}
-
-.share-url {
-    width: 100%;
-    padding: 0.75rem;
-    border: 2px solid #e9ecef;
-    border-radius: 8px;
-    margin: 1rem 0;
-    font-family: monospace;
-    font-size: 0.9rem;
-}
-
-.share-instructions {
-    color: #6c757d;
-    font-size: 0.9rem;
-    margin: 1rem 0;
-    line-height: 1.4;
-}
-
-/* Error Messages */
-.error-message {
-    background: #f8d7da;
-    color: #721c24;
-    padding: 1rem;
-    border-radius: 8px;
-    margin-bottom: 1rem;
-    border: 1px solid #f5c6cb;
-}
-
-/* Loading */
-.spinner {
-    text-align: center;
-    padding: 4rem;
-    font-size: 1.2rem;
-    color: #0066cc;
-}
+    color: white; padding: 1rem 0; box-shadow: 0 2px 10px rgba(0,102,204,0.2);
+}
+.header-content { max-width: 1200px; margin: 0 auto; padding: 0 2rem; }
+.logo-section { display: flex; align-items: center; gap: 1rem; }
+.logo-placeholder { background: #ffb800; color: var(--primary-color); padding: 0.5rem 1rem; border-radius: 8px; font-weight: bold; font-size: 1.2rem; }
+.app-title { font-size: 2rem; font-weight: 300; margin: 0; }
+.screen { max-width: 1200px; margin: 0 auto; padding: 2rem; min-height: calc(100vh - 100px); }
+.btn { padding: 0.75rem 1.5rem; border: none; border-radius: 8px; font-size: 1rem; font-weight: 500; cursor: pointer; transition: all 0.3s ease; }
+.btn-primary { background: linear-gradient(135deg, #0066cc 0%, #1e88e5 100%); color: white; box-shadow: 0 4px 15px rgba(0,102,204,0.3); }
+.btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,102,204,0.4); }
+.btn-secondary { background: var(--secondary-color); color: white; }
+.btn-secondary:hover { background: #5a6268; }
+.welcome-screen { text-align: center; padding: 4rem 2rem; }
+.welcome-intro h2 { font-size: 2.5rem; margin-bottom: 1rem; color: var(--primary-color); }
+.welcome-intro p { font-size: 1.2rem; margin-bottom: 3rem; color: var(--secondary-color); max-width: 600px; margin: 0 auto 3rem; }
+.button-container { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+.puzzle-form { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+.form-section { margin-bottom: 2rem; padding-bottom: 2rem; border-bottom: 1px solid var(--dark-bg); }
+.form-group label { display: block; margin-bottom: 0.5rem; font-weight: 500; }
+.form-group input, .form-group textarea { width: 100%; padding: 0.75rem; border: 2px solid var(--dark-bg); border-radius: 8px; font-size: 1rem; }
+.word-entry { background: var(--light-bg); padding: 1.5rem; border-radius: 8px; margin-bottom: 1rem; border-left: 4px solid var(--primary-color); }
+.word-group { display: grid; grid-template-columns: 1fr 2fr auto; gap: 1rem; align-items: end; }
+.form-controls { display: flex; gap: 1rem; justify-content: flex-end; margin-top: 2rem; }
+.puzzle-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 2rem; margin-bottom: 2rem; }
+.puzzle-card { background: white; border-radius: 12px; padding: 1.5rem; box-shadow: 0 4px 15px rgba(0,0,0,0.1); transition: transform 0.3s ease; }
+.puzzle-card:hover { transform: translateY(-5px); }
+.puzzle-card-header h3 { color: var(--primary-color); }
+.puzzle-content { display: grid; grid-template-columns: 1fr 350px; gap: 2rem; align-items: flex-start; }
+.grid-container { background: white; padding: 1rem; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); display: flex; justify-content: center; align-items: center; }
+.crossword-grid { display: grid; gap: 2px; aspect-ratio: 1 / 1; width: 100%; max-width: 600px; }
+.grid-cell { width: 100%; height: 100%; position: relative; background: var(--light-bg); }
+.grid-cell.blocked { background: var(--blocked-cell-color); border: none; }
+.grid-cell.active { background: white; border: 1px solid #bdc3c7; }
+.cell-number { position: absolute; top: 1px; left: 2px; font-size: clamp(0.4rem, 1.5vw, 0.6rem); font-weight: bold; color: var(--primary-color); z-index: 2; }
+.grid-cell input { width: 100%; height: 100%; border: none; outline: none; text-align: center; font-size: clamp(0.6rem, 2.5vw, 1.1rem); font-weight: bold; background: transparent; z-index: 1; padding: 0; }
+.grid-cell input:focus { background: #e7f3ff; }
+/* NOUVEAU: Style pour le mot actif */
+.grid-cell.active-word { background-color: #fffbe6; }
+.grid-cell.active-word input:focus { background-color: #fff3c4; }
+
+.grid-cell.correct input { background: #d4edda !important; }
+.grid-cell.incorrect input { background: #f8d7da !important; }
+.clues-container { background: white; padding: 1.5rem; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-height: 65vh; overflow-y: auto; }
+.clues-section h3 { color: var(--primary-color); margin-bottom: 1rem; }
+.clues-section ul { list-style: none; padding: 0; }
+.clues-section li { margin-bottom: 0.75rem; padding: 0.5rem; border-radius: 6px; border-left: 3px solid transparent; transition: all 0.2s ease; cursor: pointer; }
+.clues-section li:hover { background: #e7f3ff; border-left-color: var(--primary-color); }
+.clue-number { font-weight: bold; margin-right: 0.5rem; }
+.help-section { background: white; padding: 1.5rem; border-radius: 12px; margin-top: 1rem; border-left: 4px solid var(--primary-color); }
+.help-tip { display: flex; align-items: center; margin-bottom: 0.75rem; font-size: 0.9rem; }
+.tip-icon { font-size: 1.2rem; margin-right: 0.75rem; }
 
-/* Responsive Design */
 @media (max-width: 992px) {
-    .puzzle-content {
-        grid-template-columns: 1fr;
-        gap: 1.5rem;
-    }
-    .clues-container {
-        max-height: 40vh;
-    }
-    .grid-container {
-        padding: 1.5rem;
-    }
+    .puzzle-content { grid-template-columns: 1fr; }
+    .clues-container { max-height: 40vh; }
 }
-
-
 @media (max-width: 768px) {
-    .header-content {
-        padding: 0 1rem;
-    }
-    
-    .logo-section {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 0.5rem;
-    }
-    
-    .app-title {
-        font-size: 1.5rem;
-    }
-    
-    .screen {
-        padding: 1rem;
-    }
-    
-    .grid-container {
-        padding: 1rem;
-    }
-    .cell-number {
-        font-size: 0.5rem;
-    }
-    .grid-cell input {
-        font-size: 0.9rem;
-    }
-    
-    .word-group {
-        grid-template-columns: 1fr;
-        gap: 0.5rem;
-    }
-    
-    .button-container,
-    .form-controls,
-    .puzzle-controls,
-    .puzzle-complete-controls {
-        flex-direction: column;
-        align-items: stretch;
-    }
-    
-    .puzzle-header {
-        flex-direction: column;
-        gap: 1rem;
-        text-align: center;
-    }
-    
-    .puzzle-stats {
-        justify-content: center;
-    }
+    .word-group { grid-template-columns: 1fr; }
+    .button-container, .form-controls { flex-direction: column; align-items: stretch; }
 }
 `;
 
 // --- Initialize App ---
 document.addEventListener('DOMContentLoaded', () => {
-    console.log("🚀 Crossword Master v2.0: Initializing with intelligent algorithm...");
+    console.log("🚀 Crossword Master v2.1: Initializing with direction lock...");
     
     const styleSheet = document.createElement('style');
     styleSheet.textContent = styles;
@@ -2659,21 +1791,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const puzzleIdFromUrl = urlParams.get('puzzleId');
     
     if (puzzleIdFromUrl) {
-        console.log(`Crossword Master: Puzzle ID found in URL: ${puzzleIdFromUrl}`);
         const puzzleToLoad = appState.puzzles.find(p => p.id === puzzleIdFromUrl);
         if (puzzleToLoad) {
             appState.studentAccessMode = true;
             startPuzzle(puzzleIdFromUrl);
         } else {
-            console.log("Crossword Master: Puzzle not found");
             appState.studentAccessMode = true;
             appState.errorMessage = "Puzzle introuvable ou lien invalide. Veuillez vérifier l'URL.";
             navigateTo('welcome');
         }
     } else {
-        appState.studentAccessMode = false;
         renderApp();
     }
     
-    console.log("✅ Crossword Master v2.0: Initialization complete with intelligent features!");
+    console.log("✅ Crossword Master v2.1: Initialization complete!");
 });
