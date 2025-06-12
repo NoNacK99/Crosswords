@@ -896,6 +896,7 @@ statsSection.style.borderRadius = '8px';
 statsSection.style.boxShadow = '0 1px 4px rgba(0,0,0,.08)';
 statsSection.style.alignItems = 'center';
         statsSection.style.flex = '0 0 auto';
+        statsSection.style.maxWidth = 'max-content';
 
     const timer = document.createElement('div');
     timer.className = 'timer';
@@ -907,6 +908,9 @@ statsSection.style.alignItems = 'center';
     statsSection.appendChild(score);
 
     header.appendChild(titleSection);
+    header.style.display = 'flex';
+    header.style.justifyContent = 'space-between';
+    header.style.alignItems = 'flex-start';
     header.appendChild(statsSection);
     screen.appendChild(header);
 
@@ -1310,9 +1314,7 @@ function renderClues(): HTMLElement {
         .filter(w => w.number)
         .sort((a,b) => (a.number!) - (b.number!));
 
-    const displayedNumbers: Set<number> = new Set();
     sortedWords.forEach(word => {
-        if(displayedNumbers.has(word.number!)) return;
 
         const listItem = document.createElement('li');
         listItem.innerHTML = `<span class="clue-number">${word.number}.</span> ${word.definition}`;
@@ -1327,7 +1329,6 @@ function renderClues(): HTMLElement {
         } else {
             verticalList.appendChild(listItem);
         }
-        displayedNumbers.add(word.number!);
     });
 
     horizontalClues.appendChild(horizontalList);
