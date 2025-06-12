@@ -888,12 +888,20 @@ function renderSolvePuzzleScreen() {
 
     const statsSection = document.createElement('div');
     statsSection.className = 'puzzle-stats';
+statsSection.style.display = 'flex';
+statsSection.style.gap = '1rem';
+statsSection.style.background = '#ffffff';
+statsSection.style.padding = '4px 12px';
+statsSection.style.borderRadius = '8px';
+statsSection.style.boxShadow = '0 1px 4px rgba(0,0,0,.08)';
+statsSection.style.alignItems = 'center';
+
     const timer = document.createElement('div');
     timer.className = 'timer';
-    timer.textContent = '00:00';
+    timer.textContent = '⏱ 00:00';
     const score = document.createElement('div');
     score.className = 'score';
-    score.textContent = `Score: ${appState.score}`;
+    score.textContent = `⭐ ${appState.score}`;
     statsSection.appendChild(timer);
     statsSection.appendChild(score);
 
@@ -911,16 +919,19 @@ function renderSolvePuzzleScreen() {
     const cluesContainer = document.createElement('div');
     cluesContainer.className = 'clues-container';
     
-    const verifySection = document.createElement('div');
-    verifySection.className = 'verify-section-top';
     
-    const checkButton = document.createElement('button');
-    checkButton.textContent = 'Vérifier';
-    checkButton.className = 'btn btn-primary verify-btn';
-    checkButton.onclick = checkAnswers;
-    
-    verifySection.appendChild(checkButton);
-    cluesContainer.appendChild(verifySection);
+const checkButton = document.createElement('button');
+checkButton.textContent = 'Vérifier';
+checkButton.className = 'btn btn-primary verify-btn';
+checkButton.onclick = checkAnswers;
+// Style pour qu'il reste toujours visible
+checkButton.style.position = 'fixed';
+checkButton.style.bottom = '24px';
+checkButton.style.right = '24px';
+checkButton.style.zIndex = '1000';
+
+screen.appendChild(checkButton);
+
     
     cluesContainer.appendChild(renderClues());
 
@@ -1032,6 +1043,7 @@ input.oninput = (e) => {
     }
 };
 
+                };
                 
                 // --- NOUVELLE GESTION DE DIRECTION ---
                 input.onfocus = () => {
@@ -1191,17 +1203,36 @@ function clearWordAtPosition(row: number, col: number) {
 }
 
 // MODIFIÉ: Logique de navigation simplifiée grâce au verrou de direction
+
 function navigateToNextCell(currentRow: number, currentCol: number) {
     if (!appState.currentPuzzle || !appState.currentPuzzle.grid) return;
-    
-    const grid = appState.currentPuzzle.grid;
-    const direction = appState.currentDirection; // Utilise la direction verrouillée
 
-    if (direction === 'horizontal') {
-        for (let col = currentCol + 1; col < grid[currentRow].length; col++) {
-            const cell = grid[currentRow][col];
-            if (cell.letter) {
-                const nextInput = document.querySelector(`input[data-row="${currentRow}"][data-col="${col}"]`) as HTMLInputElement;
+    const activeWord = getWordsAtPosition(currentRow, currentCol)
+        .find(w => w.direction === appState.currentDirection);
+    if (!activeWord || activeWord.startRow === undefined || activeWord.startCol === undefined) return;
+
+    let nextRow: number | undefined, nextCol: number | undefined;
+
+    if (activeWord.direction === 'horizontal') {
+        const offset = currentCol - activeWord.startCol;
+        if (offset + 1 < activeWord.word.length) {
+            nextRow = activeWord.startRow;
+            nextCol = activeWord.startCol + offset + 1;
+        }
+    } else {
+        const offset = currentRow - activeWord.startRow;
+        if (offset + 1 < activeWord.word.length) {
+            nextRow = activeWord.startRow + offset + 1;
+            nextCol = activeWord.startCol;
+        }
+    }
+
+    if (nextRow !== undefined && nextCol !== undefined) {
+        const nextInput = document.querySelector(`input[data-row="${nextRow}"][data-col="${nextCol}"]`) as HTMLInputElement;
+        if (nextInput) nextInput.focus();
+    }
+}
+"][data-col="${col}"]`) as HTMLInputElement;
                 if (nextInput) {
                     nextInput.focus();
                     return;
