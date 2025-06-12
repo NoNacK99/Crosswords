@@ -1223,30 +1223,9 @@ function navigateToNextCell(currentRow: number, currentCol: number) {
             nextCol = activeWord.startCol;
         }
     }
-
     if (nextRow !== undefined && nextCol !== undefined) {
         const nextInput = document.querySelector(`input[data-row="${nextRow}"][data-col="${nextCol}"]`) as HTMLInputElement;
         if (nextInput) nextInput.focus();
-    }
-}
-"][data-col="${col}"]`) as HTMLInputElement;
-                if (nextInput) {
-                    nextInput.focus();
-                    return;
-                }
-            } else { break; } // Arrêt sur une case bloquée
-        }
-    } else { // 'vertical'
-        for (let row = currentRow + 1; row < grid.length; row++) {
-            const cell = grid[row][currentCol];
-            if (cell.letter) {
-                const nextInput = document.querySelector(`input[data-row="${row}"][data-col="${currentCol}"]`) as HTMLInputElement;
-                if (nextInput) {
-                    nextInput.focus();
-                    return;
-                }
-            } else { break; } // Arrêt sur une case bloquée
-        }
     }
 }
 
