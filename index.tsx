@@ -1186,34 +1186,46 @@ function clearWordAtPosition(row: number, col: number) {
     console.log(`✅ Mot "${wordToClear.word}" effacé`);
 }
 
-// MODIFIÉ: Logique de navigation simplifiée grâce au verrou de direction
 function navigateToNextCell(currentRow: number, currentCol: number) {
     if (!appState.currentPuzzle || !appState.currentPuzzle.grid) return;
-    
+
     const grid = appState.currentPuzzle.grid;
-    const direction = appState.currentDirection; // Utilise la direction verrouillée
+    const direction = appState.currentDirection;
 
     if (direction === 'horizontal') {
         for (let col = currentCol + 1; col < grid[currentRow].length; col++) {
             const cell = grid[currentRow][col];
-            if (cell.letter) {
-                const nextInput = document.querySelector(`input[data-row="${currentRow}"][data-col="${col}"]`) as HTMLInputElement;
-                if (nextInput) {
-                    nextInput.focus();
-                    return;
+            if (cell.letter) { // La case fait partie d'un mot
+                
+                // CORRECTION : On vérifie si la case est vide avant de s'y déplacer.
+                // Si elle ne l'est pas, la boucle continue simplement à la case suivante.
+                if (!cell.userLetter) {
+                    const nextInput = document.querySelector(`input[data-row="${currentRow}"][data-col="${col}"]`) as HTMLInputElement;
+                    if (nextInput) {
+                        nextInput.focus();
+                        return; // On a trouvé la prochaine case vide, on arrête.
+                    }
                 }
-            } else { break; } // Arrêt sur une case bloquée
+            } else {
+                break; // Arrêt sur une case bloquée
+            }
         }
     } else { // 'vertical'
         for (let row = currentRow + 1; row < grid.length; row++) {
             const cell = grid[row][currentCol];
-            if (cell.letter) {
-                const nextInput = document.querySelector(`input[data-row="${row}"][data-col="${currentCol}"]`) as HTMLInputElement;
-                if (nextInput) {
-                    nextInput.focus();
-                    return;
+            if (cell.letter) { // La case fait partie d'un mot
+                
+                // CORRECTION : Même logique pour la direction verticale.
+                if (!cell.userLetter) {
+                    const nextInput = document.querySelector(`input[data-row="${row}"][data-col="${currentCol}"]`) as HTMLInputElement;
+                    if (nextInput) {
+                        nextInput.focus();
+                        return; // On a trouvé la prochaine case vide, on arrête.
+                    }
                 }
-            } else { break; } // Arrêt sur une case bloquée
+            } else {
+                break; // Arrêt sur une case bloquée
+            }
         }
     }
 }
