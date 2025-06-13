@@ -874,6 +874,9 @@ function renderSolvePuzzleScreen() {
     }
 
     const header = document.createElement('div');
+    header.style.display = 'flex';
+    header.style.justifyContent = 'space-between';
+    header.style.alignItems = 'flex-start';
     header.className = 'puzzle-header';
 
     const titleSection = document.createElement('div');
@@ -888,29 +891,16 @@ function renderSolvePuzzleScreen() {
 
     const statsSection = document.createElement('div');
     statsSection.className = 'puzzle-stats';
-statsSection.style.display = 'flex';
-statsSection.style.gap = '1rem';
-statsSection.style.background = '#ffffff';
-statsSection.style.padding = '4px 12px';
-statsSection.style.borderRadius = '8px';
-statsSection.style.boxShadow = '0 1px 4px rgba(0,0,0,.08)';
-statsSection.style.alignItems = 'center';
-        statsSection.style.flex = '0 0 auto';
-        statsSection.style.maxWidth = 'max-content';
-
     const timer = document.createElement('div');
     timer.className = 'timer';
-    timer.textContent = '⏱ 00:00';
+    timer.textContent = '00:00';
     const score = document.createElement('div');
     score.className = 'score';
-    score.textContent = `⭐ ${appState.score}`;
+    score.textContent = `Score: ${appState.score}`;
     statsSection.appendChild(timer);
     statsSection.appendChild(score);
 
     header.appendChild(titleSection);
-    header.style.display = 'flex';
-    header.style.justifyContent = 'space-between';
-    header.style.alignItems = 'flex-start';
     header.appendChild(statsSection);
     screen.appendChild(header);
 
@@ -924,19 +914,16 @@ statsSection.style.alignItems = 'center';
     const cluesContainer = document.createElement('div');
     cluesContainer.className = 'clues-container';
     
+    const verifySection = document.createElement('div');
+    verifySection.className = 'verify-section-top';
     
-const checkButton = document.createElement('button');
-checkButton.textContent = 'Vérifier';
-checkButton.className = 'btn btn-primary verify-btn';
-checkButton.onclick = checkAnswers;
-// Style pour qu'il reste toujours visible
-checkButton.style.position = 'fixed';
-checkButton.style.bottom = '24px';
-checkButton.style.right = '24px';
-checkButton.style.zIndex = '1000';
-
-screen.appendChild(checkButton);
-
+    const checkButton = document.createElement('button');
+    checkButton.textContent = 'Vérifier';
+    checkButton.className = 'btn btn-primary verify-btn';
+    checkButton.onclick = checkAnswers;
+    
+    verifySection.appendChild(checkButton);
+    cluesContainer.appendChild(verifySection);
     
     cluesContainer.appendChild(renderClues());
 
@@ -1030,23 +1017,18 @@ function renderGrid(): HTMLElement {
                 input.dataset.row = rowIndex.toString();
                 input.dataset.col = colIndex.toString();
                 
+                input.oninput = (e) => {
+                    const target = e.target as HTMLInputElement;
+                    target.value = target.value.toUpperCase();
+                    updateUserAnswer(rowIndex, colIndex, target.value);
+                    
+                    checkWordCompletion(rowIndex, colIndex);
+                    
+                    if (target.value) {
+                        navigateToNextCell(rowIndex, colIndex);
+                    }
+                };
                 
-input.oninput = (e) => {
-    const target = e.target as HTMLInputElement;
-    target.value = target.value.toUpperCase();
-
-    // Vérifie si la case était vide AVANT de taper
-    const cell = appState.currentPuzzle!.grid![rowIndex][colIndex];
-    const wasEmpty = !(cell.userLetter?.length);
-
-    updateUserAnswer(rowIndex, colIndex, target.value);
-    checkWordCompletion(rowIndex, colIndex);
-
-    // Avance seulement si on vient de remplir une case qui était vide
-    if (target.value && wasEmpty) {
-        navigateToNextCell(rowIndex, colIndex);
-    }
-};
                 // --- NOUVELLE GESTION DE DIRECTION ---
                 input.onfocus = () => {
                     handleCellFocus(rowIndex, colIndex);
@@ -1205,32 +1187,34 @@ function clearWordAtPosition(row: number, col: number) {
 }
 
 // MODIFIÉ: Logique de navigation simplifiée grâce au verrou de direction
-
 function navigateToNextCell(currentRow: number, currentCol: number) {
     if (!appState.currentPuzzle || !appState.currentPuzzle.grid) return;
+    
+    const grid = appState.currentPuzzle.grid;
+    const direction = appState.currentDirection; // Utilise la direction verrouillée
 
-    const activeWord = getWordsAtPosition(currentRow, currentCol)
-        .find(w => w.direction === appState.currentDirection);
-    if (!activeWord || activeWord.startRow === undefined || activeWord.startCol === undefined) return;
-
-    let nextRow: number | undefined, nextCol: number | undefined;
-
-    if (activeWord.direction === 'horizontal') {
-        const offset = currentCol - activeWord.startCol;
-        if (offset + 1 < activeWord.word.length) {
-            nextRow = activeWord.startRow;
-            nextCol = activeWord.startCol + offset + 1;
+    if (direction === 'horizontal') {
+        for (let col = currentCol + 1; col < grid[currentRow].length; col++) {
+            const cell = grid[currentRow][col];
+            if (cell.letter) {
+                const nextInput = document.querySelector(`input[data-row="${currentRow}"][data-col="${col}"]`) as HTMLInputElement;
+                if (nextInput) {
+                    nextInput.focus();
+                    return;
+                }
+            } else { break; } // Arrêt sur une case bloquée
         }
-    } else {
-        const offset = currentRow - activeWord.startRow;
-        if (offset + 1 < activeWord.word.length) {
-            nextRow = activeWord.startRow + offset + 1;
-            nextCol = activeWord.startCol;
+    } else { // 'vertical'
+        for (let row = currentRow + 1; row < grid.length; row++) {
+            const cell = grid[row][currentCol];
+            if (cell.letter) {
+                const nextInput = document.querySelector(`input[data-row="${row}"][data-col="${currentCol}"]`) as HTMLInputElement;
+                if (nextInput) {
+                    nextInput.focus();
+                    return;
+                }
+            } else { break; } // Arrêt sur une case bloquée
         }
-    }
-    if (nextRow !== undefined && nextCol !== undefined) {
-        const nextInput = document.querySelector(`input[data-row="${nextRow}"][data-col="${nextCol}"]`) as HTMLInputElement;
-        if (nextInput) nextInput.focus();
     }
 }
 
@@ -1314,21 +1298,39 @@ function renderClues(): HTMLElement {
         .filter(w => w.number)
         .sort((a,b) => (a.number!) - (b.number!));
 
+    const displayedNumbers: Set<number> = new Set();
     sortedWords.forEach(word => {
+        if(displayedNumbers.has(word.number!)) return;
 
         const listItem = document.createElement('li');
         listItem.innerHTML = `<span class="clue-number">${word.number}.</span> ${word.definition}`;
-        
-        listItem.style.cursor = 'pointer';
-        listItem.onclick = () => {
-            focusOnWord(word);
-        };
+listItem.style.cursor = 'pointer';
+
+// Stocke la position exacte du mot
+listItem.dataset.row = String(word.startRow ?? -1);
+listItem.dataset.col = String(word.startCol ?? -1);
+listItem.dataset.direction = word.direction as ('horizontal'|'vertical');
+
+listItem.onclick = () => {
+    const r = Number(listItem.dataset.row);
+    const c = Number(listItem.dataset.col);
+    if (r >= 0 && c >= 0) {
+        appState.currentDirection = listItem.dataset.direction as ('horizontal'|'vertical');
+        const input = document.querySelector(`input[data-row="${r}"][data-col="${c}"]`) as HTMLInputElement;
+        if (input) {
+            input.focus();
+            input.select();
+        }
+        handleCellFocus(r, c);
+    }
+};
         
         if (word.direction === 'horizontal') {
             horizontalList.appendChild(listItem);
         } else {
             verticalList.appendChild(listItem);
         }
+        displayedNumbers.add(word.number!);
     });
 
     horizontalClues.appendChild(horizontalList);
@@ -1695,7 +1697,7 @@ const styles = `
     --text-color: #2c3e50;
     --highlight-color: #ffeb3b; /* Jaune pour le surlignage du mot actif */
     /* 🎨 MODIFICATION COULEUR */
-    --blocked-cell-color: #c8d4de; /* Gris ardoise plus doux */
+    --blocked-cell-color: #7f8c8d; /* Gris ardoise plus doux */
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
