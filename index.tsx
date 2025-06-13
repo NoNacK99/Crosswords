@@ -1287,6 +1287,8 @@ function fillIntersectingLetters(completedWord: WordEntry) {
     }
 }
 
+// --- FONCTION COMPLÈTE ET CORRIGÉE À UTILISER ---
+
 function renderClues(): HTMLElement {
     const cluesContainer = document.createElement('div');
     cluesContainer.className = 'clues';
@@ -1311,37 +1313,19 @@ function renderClues(): HTMLElement {
         .sort((a, b) => (a.number!) - (b.number!));
 
     const displayedNumbers: Set<number> = new Set();
+    
     sortedWords.forEach(word => {
-        // La variable 'word' est accessible ici directement grâce à la boucle forEach
         if (displayedNumbers.has(word.number!)) return;
 
         const listItem = document.createElement('li');
         listItem.innerHTML = `<span class="clue-number">${word.number}.</span> ${word.definition}`;
         listItem.style.cursor = 'pointer';
 
-        // CORRECTION : On attache directement l'événement pour appeler focusOnWord.
-        // C'est plus propre et garantit que la bonne fonction est utilisée.
+        // Logique de clic corrigée et propre
         listItem.onclick = () => {
             focusOnWord(word);
         };
 
-        if (word.direction === 'horizontal') {
-            horizontalList.appendChild(listItem);
-        } else {
-            verticalList.appendChild(listItem);
-        }
-        displayedNumbers.add(word.number!);
-    });
-
-    horizontalClues.appendChild(horizontalList);
-    verticalClues.appendChild(verticalList);
-
-    cluesContainer.appendChild(horizontalClues);
-    cluesContainer.appendChild(verticalClues);
-
-    return cluesContainer;
-};
-        
         if (word.direction === 'horizontal') {
             horizontalList.appendChild(listItem);
         } else {
