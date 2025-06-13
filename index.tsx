@@ -1296,33 +1296,38 @@ function renderClues(): HTMLElement {
 
     const sortedWords = [...appState.currentPuzzle.words]
         .filter(w => w.number)
-        .sort((a,b) => (a.number!) - (b.number!));
+        .sort((a, b) => (a.number!) - (b.number!));
 
     const displayedNumbers: Set<number> = new Set();
     sortedWords.forEach(word => {
-        if(displayedNumbers.has(word.number!)) return;
+        // La variable 'word' est accessible ici directement grâce à la boucle forEach
+        if (displayedNumbers.has(word.number!)) return;
 
         const listItem = document.createElement('li');
         listItem.innerHTML = `<span class="clue-number">${word.number}.</span> ${word.definition}`;
-listItem.style.cursor = 'pointer';
+        listItem.style.cursor = 'pointer';
 
-// Stocke la position exacte du mot
-listItem.dataset.row = String(word.startRow ?? -1);
-listItem.dataset.col = String(word.startCol ?? -1);
-listItem.dataset.direction = word.direction as ('horizontal'|'vertical');
+        // CORRECTION : On attache directement l'événement pour appeler focusOnWord.
+        // C'est plus propre et garantit que la bonne fonction est utilisée.
+        listItem.onclick = () => {
+            focusOnWord(word);
+        };
 
-listItem.onclick = () => {
-    const r = Number(listItem.dataset.row);
-    const c = Number(listItem.dataset.col);
-    if (r >= 0 && c >= 0) {
-        appState.currentDirection = listItem.dataset.direction as ('horizontal'|'vertical');
-        const input = document.querySelector(`input[data-row="${r}"][data-col="${c}"]`) as HTMLInputElement;
-        if (input) {
-            input.focus();
-            input.select();
+        if (word.direction === 'horizontal') {
+            horizontalList.appendChild(listItem);
+        } else {
+            verticalList.appendChild(listItem);
         }
-        handleCellFocus(r, c);
-    }
+        displayedNumbers.add(word.number!);
+    });
+
+    horizontalClues.appendChild(horizontalList);
+    verticalClues.appendChild(verticalList);
+
+    cluesContainer.appendChild(horizontalClues);
+    cluesContainer.appendChild(verticalClues);
+
+    return cluesContainer;
 };
         
         if (word.direction === 'horizontal') {
